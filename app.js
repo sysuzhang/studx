@@ -356,7 +356,9 @@ function bindEvents() {
 }
 
 function bootstrap() {
-  refs.textInput.value = "永和春风";
+  const params = new URLSearchParams(window.location.search);
+  const presetChars = extractChineseChars(params.get("chars") || "");
+  refs.textInput.value = presetChars.length ? presetChars.join("") : "永和春风";
   bindEvents();
   regenerate();
 }

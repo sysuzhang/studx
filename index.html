@@ -3,99 +3,80 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>汉字字帖打印与笔顺演示</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <title>汉字学习平台</title>
+    <link rel="stylesheet" href="./home.css" />
   </head>
   <body>
-    <header class="site-header no-print">
-      <h1>汉字字帖打印网站</h1>
-      <p>支持自定义字帖生成、A4 打印、汉字笔顺动画演示与笔画顺序查看。</p>
+    <header class="hero">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="nav-links">
+          <a href="./practice.html">分级练习</a>
+          <a href="./worksheet.html">字帖工坊</a>
+        </div>
+      </nav>
+      <div class="hero-content">
+        <div>
+          <p class="badge">Learning Platform</p>
+          <h1>分龄 × 分级的汉字学习平台</h1>
+          <p class="lead">
+            从启蒙到进阶，按年龄与汉语级别智能筛选学习汉字，配套笔顺演示、词典解释、词组训练与成语故事，帮助学习者系统提升。
+          </p>
+          <div class="hero-actions">
+            <a href="./practice.html" class="btn primary">开始分级练习</a>
+            <a href="./worksheet.html" class="btn ghost">进入字帖工坊</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <h2>今日学习建议</h2>
+          <ul>
+            <li>🔹 年龄 6-8 岁 + HSK1：从“人、口、山、水”开始</li>
+            <li>🔹 年龄 9-12 岁 + HSK2：扩展“春、学、友、书”</li>
+            <li>🔹 年龄 13+ + HSK3：进阶“德、信、志、勤”</li>
+          </ul>
+        </div>
+      </div>
     </header>
 
-    <main class="layout">
-      <aside class="panel controls no-print">
-        <section>
-          <h2>1) 输入练习文字</h2>
-          <textarea id="textInput" rows="5" placeholder="请输入要练习的汉字，例如：永和春风"></textarea>
-          <p class="hint">将自动过滤非汉字字符。</p>
-        </section>
+    <main class="main">
+      <section class="section">
+        <h2>核心功能</h2>
+        <div class="feature-grid">
+          <article class="card">
+            <h3>分级汉字练习</h3>
+            <p>基于“年龄段 + 汉语级别”双维筛选，自动生成更合适的学习字库。</p>
+          </article>
+          <article class="card">
+            <h3>词典解释与词组</h3>
+            <p>每个汉字配套拼音、释义与常用词组，帮助理解字义和实际应用。</p>
+          </article>
+          <article class="card">
+            <h3>成语故事拓展</h3>
+            <p>遇到关联成语时，自动展示故事背景，让汉字学习更有文化深度。</p>
+          </article>
+          <article class="card">
+            <h3>字帖打印与笔顺</h3>
+            <p>支持田字格/米字格打印，内置汉字笔顺动画演示与书写练习。</p>
+          </article>
+        </div>
+      </section>
 
-        <section>
-          <h2>2) 字帖配置</h2>
-          <div class="form-grid">
-            <label for="gridType">格子类型</label>
-            <select id="gridType">
-              <option value="tian">田字格</option>
-              <option value="mi">米字格</option>
-              <option value="hui">回宫格</option>
-            </select>
-
-            <label for="repeatCount">每字练习格数</label>
-            <input id="repeatCount" type="number" min="2" max="24" value="10" />
-
-            <label for="columns">每行格子数</label>
-            <input id="columns" type="number" min="4" max="20" value="10" />
-
-            <label for="cellSize">格子尺寸 (px)</label>
-            <input id="cellSize" type="range" min="40" max="90" value="60" />
-
-            <label for="traceMode">练习模式</label>
-            <select id="traceMode">
-              <option value="trace">描红</option>
-              <option value="blank">空白临写</option>
-            </select>
-
-            <label for="showGuide">显示参考字</label>
-            <input id="showGuide" type="checkbox" checked />
-          </div>
-        </section>
-
-        <section class="actions">
-          <button id="generateBtn" type="button">生成字帖</button>
-          <button id="printBtn" type="button">打印字帖</button>
-          <button id="clearBtn" type="button" class="ghost">清空</button>
-        </section>
-
-        <section>
-          <h2>3) 选择演示汉字</h2>
-          <div id="charPicker" class="char-picker"></div>
-        </section>
-      </aside>
-
-      <section class="content">
-        <article class="panel stroke-panel no-print">
-          <div class="stroke-header">
-            <h2>汉字笔顺演示</h2>
-            <div class="stroke-char">
-              当前汉字：<strong id="currentChar">-</strong>
-            </div>
-          </div>
-
-          <div class="stroke-body">
-            <div id="writerTarget" class="writer-target" aria-label="笔顺演示区域"></div>
-            <div class="stroke-side">
-              <div class="stroke-tools">
-                <button id="animateBtn" type="button">播放笔顺</button>
-                <button id="loopBtn" type="button">循环演示：关</button>
-                <button id="quizBtn" type="button" class="ghost">手写练习</button>
-              </div>
-              <p id="strokeMeta" class="hint">请选择一个汉字查看笔画顺序。</p>
-              <ol id="strokeOrderList" class="stroke-order-list"></ol>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel preview-panel">
-          <div class="preview-head no-print">
-            <h2>字帖预览（打印区）</h2>
-            <p class="hint">打印时建议勾选“背景图形”。</p>
-          </div>
-          <div id="worksheetPages" class="worksheet-pages"></div>
-        </article>
+      <section class="section split">
+        <div class="panel">
+          <h2>学习路径</h2>
+          <ol>
+            <li>选择年龄段与汉语级别，生成汉字学习清单。</li>
+            <li>查看每个汉字的词典解释、词组和成语故事。</li>
+            <li>跟随笔顺演示进行识字和书写训练。</li>
+            <li>一键进入字帖工坊，打印练习纸持续巩固。</li>
+          </ol>
+        </div>
+        <div class="panel highlight">
+          <h2>快速开始</h2>
+          <p>建议先进入分级练习，选择你当前年龄与中文水平。</p>
+          <a href="./practice.html" class="btn primary block">立即开始学习</a>
+        </div>
       </section>
     </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
-    <script src="./app.js" defer></script>
   </body>
 </html>

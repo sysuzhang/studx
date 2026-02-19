@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>分级汉字练习 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./practice.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html" class="active">分级练习</a>
+          <a href="./worksheet.html">字帖工坊</a>
+        </div>
+      </div>
+      <div class="hero">
+        <div>
+          <h1>分级汉字练习中心</h1>
+          <p>按“年龄段 + 汉语级别”双维筛选学习汉字，系统掌握字义、词组、成语与笔顺。</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel filters">
+        <h2>选择学习维度</h2>
+        <div class="filter-grid">
+          <label for="ageSelect">年龄段</label>
+          <select id="ageSelect"></select>
+          <label for="levelSelect">汉语级别</label>
+          <select id="levelSelect"></select>
+        </div>
+        <div class="actions">
+          <button id="generateBtn" type="button">生成学习清单</button>
+          <a id="worksheetLink" class="btn-link" href="./worksheet.html">将当前清单用于字帖打印</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>推荐练习汉字</h2>
+          <p id="resultMeta" class="meta">请先选择维度并生成清单。</p>
+        </div>
+        <div id="charList" class="char-list"></div>
+      </section>
+
+      <section class="detail-layout">
+        <article class="panel">
+          <h2>字典解释与笔顺</h2>
+          <div class="char-detail">
+            <div>
+              <div class="char-head">
+                <span id="detailChar" class="big-char">-</span>
+                <div>
+                  <p id="detailPinyin" class="pinyin">-</p>
+                  <p id="detailMeaning" class="meaning">请选择一个汉字查看详细解释。</p>
+                </div>
+              </div>
+              <h3>常用词组</h3>
+              <ul id="wordList" class="word-list"></ul>
+            </div>
+            <div>
+              <div id="writerTarget" class="writer-target"></div>
+              <div class="writer-actions">
+                <button id="animateBtn" type="button">播放笔顺</button>
+                <button id="loopBtn" type="button">循环：关</button>
+              </div>
+              <p id="strokeMeta" class="meta">点击汉字卡片后可查看笔顺。</p>
+              <ol id="strokeOrderList" class="stroke-order"></ol>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>关联成语与故事</h2>
+          <div id="idiomList" class="idiom-list">
+            <p class="empty">暂无成语故事，请先选择汉字。</p>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
+    <script src="./hanzi-data.js"></script>
+    <script src="./practice.js" defer></script>
+  </body>
+</html>
