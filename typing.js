@@ -14,6 +14,7 @@ const refs = {
   promptType: document.getElementById("promptType"),
   promptText: document.getElementById("promptText"),
   promptHint: document.getElementById("promptHint"),
+  queueStream: document.getElementById("queueStream"),
   answerInput: document.getElementById("answerInput"),
   submitBtn: document.getElementById("submitBtn"),
   feedbackText: document.getElementById("feedbackText"),
@@ -21,31 +22,54 @@ const refs = {
   openWorksheetLink: document.getElementById("openWorksheetLink"),
   sessionSummary: document.getElementById("sessionSummary"),
   historyBody: document.getElementById("historyBody"),
-  keySetSelect: document.getElementById("keySetSelect"),
-  keyboardDurationSelect: document.getElementById("keyboardDurationSelect"),
-  keyboardLevelSelect: document.getElementById("keyboardLevelSelect"),
-  keyboardStartBtn: document.getElementById("keyboardStartBtn"),
-  keyboardEndBtn: document.getElementById("keyboardEndBtn"),
-  keyboardScoreValue: document.getElementById("keyboardScoreValue"),
-  targetKeyValue: document.getElementById("targetKeyValue"),
-  keyboardTimerValue: document.getElementById("keyboardTimerValue"),
-  keyboardStreakValue: document.getElementById("keyboardStreakValue"),
-  keyboardAccuracyValue: document.getElementById("keyboardAccuracyValue"),
-  keyboardSpeedValue: document.getElementById("keyboardSpeedValue"),
-  fingerHintText: document.getElementById("fingerHintText"),
-  keyboardFeedbackText: document.getElementById("keyboardFeedbackText"),
-  virtualKeyboard: document.getElementById("virtualKeyboard"),
-  keyboardSummary: document.getElementById("keyboardSummary"),
-  keyboardHistoryBody: document.getElementById("keyboardHistoryBody"),
-  dailyTaskApplyBtn: document.getElementById("dailyTaskApplyBtn"),
-  dailyTaskTitle: document.getElementById("dailyTaskTitle"),
-  dailyTaskDesc: document.getElementById("dailyTaskDesc"),
-  dailyTaskProgress: document.getElementById("dailyTaskProgress"),
-  dailyTaskStatus: document.getElementById("dailyTaskStatus"),
+  missionTitle: document.getElementById("missionTitle"),
+  missionDesc: document.getElementById("missionDesc"),
+  missionStatus: document.getElementById("missionStatus"),
 };
 
 const store = window.LearningStore;
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
+
+const levelBuckets = {
+  basic: new Set(["启蒙", "HSK1"]),
+  mid: new Set(["HSK2", "HSK3"]),
+  high: new Set(["HSK4+"]),
+};
+
+const MISSION_TEMPLATES = [
+  {
+    id: "combo",
+    title: "连击达人",
+    desc: "本局连击达到 6 次",
+    reward: 80,
+    finalOnly: false,
+    check: (ctx) => ctx.maxCombo >= 6,
+  },
+  {
+    id: "correct",
+    title: "快手挑战",
+    desc: "本局正确达到 15 题",
+    reward: 100,
+    finalOnly: false,
+    check: (ctx) => ctx.correct >= 15,
+  },
+  {
+    id: "word",
+    title: "词组猎人",
+    desc: "本局正确完成 6 个词组题",
+    reward: 100,
+    finalOnly: false,
+    check: (ctx) => ctx.wordCorrect >= 6,
+  },
+  {
+    id: "accuracy",
+    title: "精准挑战",
+    desc: "结束时命中率不低于 85%（且总题数至少 10）",
+    reward: 120,
+    finalOnly: true,
+    check: (ctx) => ctx.accuracy >= 85 && ctx.total >= 10,
+  },
+];
 
 const state = {
   running: false,
@@ -59,111 +83,13 @@ const state = {
   lives: 3,
   total: 0,
   correct: 0,
+  wordCorrect: 0,
   prompt: null,
+  promptQueue: [],
   wrongChars: new Set(),
   pool: [],
-  keyboard: {
-    running: false,
-    timerId: null,
-    flashTimerId: null,
-    timeLeft: 60,
-    duration: 60,
-    keySet: "home",
-    level: "beginner",
-    score: 0,
-    targetKey: "",
-    hits: 0,
-    misses: 0,
-    streak: 0,
-    maxStreak: 0,
-    startTs: 0,
-    flashKey: "",
-    flashType: "",
-  },
-};
-
-const levelBuckets = {
-  basic: new Set(["启蒙", "HSK1"]),
-  mid: new Set(["HSK2", "HSK3"]),
-  high: new Set(["HSK4+"]),
-};
-
-const KEYBOARD_SETS = {
-  home: ["a", "s", "d", "f", "j", "k", "l", ";"],
-  pinyin: [..."abcdefghijklmnopqrstuvwxyz"],
-  full: [..."abcdefghijklmnopqrstuvwxyz", ";"],
-};
-
-const KEYBOARD_SET_LABEL = {
-  home: "基础键位",
-  pinyin: "拼音高频字母",
-  full: "全字母+分号",
-};
-
-const KEYBOARD_LEVEL_LABEL = {
-  beginner: "初级",
-  intermediate: "中级",
-  advanced: "高级",
-};
-
-const KEYBOARD_LEVEL_CONFIG = {
-  beginner: {
-    hitPoint: 10,
-    streakBonus: 1,
-    missPenalty: 3,
-    targetAccuracy: 78,
-    targetSpeed: 80,
-  },
-  intermediate: {
-    hitPoint: 14,
-    streakBonus: 2,
-    missPenalty: 5,
-    targetAccuracy: 84,
-    targetSpeed: 120,
-  },
-  advanced: {
-    hitPoint: 18,
-    streakBonus: 3,
-    missPenalty: 8,
-    targetAccuracy: 88,
-    targetSpeed: 160,
-  },
-};
-
-const KEYBOARD_ROWS = [
-  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-  ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
-  ["z", "x", "c", "v", "b", "n", "m"],
-];
-
-const FINGER_HINTS = {
-  q: "左手小指",
-  a: "左手小指",
-  z: "左手小指",
-  w: "左手无名指",
-  s: "左手无名指",
-  x: "左手无名指",
-  e: "左手中指",
-  d: "左手中指",
-  c: "左手中指",
-  r: "左手食指",
-  f: "左手食指",
-  v: "左手食指",
-  t: "左手食指",
-  g: "左手食指",
-  b: "左手食指",
-  y: "右手食指",
-  h: "右手食指",
-  n: "右手食指",
-  u: "右手食指",
-  j: "右手食指",
-  m: "右手食指",
-  i: "右手中指",
-  k: "右手中指",
-  o: "右手无名指",
-  l: "右手无名指",
-  p: "右手小指",
-  ";": "右手小指",
+  mission: null,
+  composing: false,
 };
 
 function normalizePinyin(text) {
@@ -190,18 +116,9 @@ function formatTime(ts) {
   return `${h}:${min}`;
 }
 
-function formatKeyLabel(key) {
-  return key === ";" ? ";" : String(key ?? "").toUpperCase();
-}
-
 function setFeedback(type, text) {
   refs.feedbackText.className = `feedback ${type}`.trim();
   refs.feedbackText.textContent = text;
-}
-
-function setKeyboardFeedback(type, text) {
-  refs.keyboardFeedbackText.className = `feedback ${type}`.trim();
-  refs.keyboardFeedbackText.textContent = text;
 }
 
 function refreshScoreBoard() {
@@ -213,19 +130,56 @@ function refreshScoreBoard() {
   refs.accuracyValue.textContent = `${accuracy}%`;
 }
 
-function refreshKeyboardBoard() {
-  const keyboard = state.keyboard;
-  const total = keyboard.hits + keyboard.misses;
-  const accuracy = total ? Math.round((keyboard.hits / total) * 100) : 0;
-  const elapsedSeconds = keyboard.startTs ? Math.max(1, Math.floor((Date.now() - keyboard.startTs) / 1000)) : 0;
-  const speed = elapsedSeconds ? Math.round((keyboard.hits / elapsedSeconds) * 60) : 0;
-  refs.keyboardScoreValue.textContent = `${keyboard.score}`;
-  refs.targetKeyValue.textContent = keyboard.targetKey ? formatKeyLabel(keyboard.targetKey) : "-";
-  refs.keyboardTimerValue.textContent = `${keyboard.timeLeft}s`;
-  refs.keyboardStreakValue.textContent = `${keyboard.streak}`;
-  refs.keyboardAccuracyValue.textContent = `${accuracy}%`;
-  refs.keyboardSpeedValue.textContent = `${speed}`;
-  return { accuracy, speed, total };
+function getMissionContext() {
+  const accuracy = state.total ? Math.round((state.correct / state.total) * 100) : 0;
+  return {
+    maxCombo: state.maxCombo,
+    correct: state.correct,
+    total: state.total,
+    accuracy,
+    wordCorrect: state.wordCorrect,
+  };
+}
+
+function renderMissionPanel() {
+  if (!state.mission) {
+    refs.missionTitle.textContent = "今日趣味任务";
+    refs.missionDesc.textContent = "-";
+    refs.missionStatus.textContent = "状态：待开始";
+    return;
+  }
+  refs.missionTitle.textContent = `${state.mission.title}（奖励 +${state.mission.reward}）`;
+  refs.missionDesc.textContent = state.mission.desc;
+  refs.missionStatus.textContent = state.mission.completed ? "状态：已完成" : "状态：进行中";
+}
+
+function createMission() {
+  const template = MISSION_TEMPLATES[Math.floor(Math.random() * MISSION_TEMPLATES.length)];
+  return {
+    ...template,
+    completed: false,
+    awarded: false,
+  };
+}
+
+function tryCompleteMission(finalPhase) {
+  if (!state.mission || state.mission.completed) {
+    return;
+  }
+  if (state.mission.finalOnly && !finalPhase) {
+    return;
+  }
+  if (!state.mission.check(getMissionContext())) {
+    return;
+  }
+  state.mission.completed = true;
+  if (!state.mission.awarded) {
+    state.score += state.mission.reward;
+    state.mission.awarded = true;
+    refreshScoreBoard();
+    setFeedback("ok", `完成趣味任务“${state.mission.title}”，奖励 +${state.mission.reward} 分`);
+  }
+  renderMissionPanel();
 }
 
 function buildPools() {
@@ -282,7 +236,6 @@ function filterByLevel(pool) {
 function buildRoundPool() {
   const { charPool, wordPool } = buildPools();
   let pool = [];
-
   if (state.mode === "hanzi") {
     pool = refs.includeWords.checked ? [...charPool, ...wordPool] : [...charPool];
   } else {
@@ -291,30 +244,79 @@ function buildRoundPool() {
       : [];
     pool = [...charPool.filter((item) => item.expectedPinyin.length), ...pinyinWordPool];
   }
-
-  pool = filterByLevel(pool);
-  return pool;
+  return filterByLevel(pool);
 }
 
-function pickPrompt() {
+function randomPrompt() {
   if (!state.pool.length) {
-    state.prompt = null;
-    refs.promptText.textContent = "当前条件下没有可用题目";
-    refs.promptHint.textContent = "请调整级别或题型设置。";
+    return null;
+  }
+  const base = state.pool[Math.floor(Math.random() * state.pool.length)];
+  return { ...base };
+}
+
+function refillPromptQueue(minCount) {
+  while (state.promptQueue.length < minCount) {
+    const next = randomPrompt();
+    if (!next) {
+      break;
+    }
+    state.promptQueue.push(next);
+  }
+}
+
+function renderQueueStream() {
+  refs.queueStream.innerHTML = "";
+  if (!state.promptQueue.length) {
+    refs.queueStream.innerHTML = `<span class="queue-chip active">无题目</span>`;
     return;
   }
-  const random = state.pool[Math.floor(Math.random() * state.pool.length)];
-  state.prompt = random;
+  let activeEl = null;
+  state.promptQueue.slice(0, 30).forEach((item, idx) => {
+    const chip = document.createElement("span");
+    chip.className = `queue-chip${idx === 0 ? " active" : ""}`;
+    chip.textContent = item.text;
+    refs.queueStream.appendChild(chip);
+    if (idx === 0) {
+      activeEl = chip;
+    }
+  });
+  if (activeEl) {
+    setTimeout(() => {
+      activeEl.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }, 0);
+  }
+}
+
+function updatePromptDisplay() {
+  state.prompt = state.promptQueue[0] || null;
+  if (!state.prompt) {
+    refs.promptType.textContent = "题型：当前无题目";
+    refs.promptText.textContent = "-";
+    refs.promptHint.textContent = "提示：请重新开始闯关。";
+    return;
+  }
   refs.promptType.textContent = `题型：${state.mode === "hanzi" ? "汉字输入" : "拼音输入"} / ${
-    random.kind === "char" ? "单字" : "词组"
+    state.prompt.kind === "char" ? "单字" : "词组"
   }`;
-  refs.promptText.textContent = random.text;
+  refs.promptText.textContent = state.prompt.text;
   refs.promptHint.textContent =
     state.mode === "hanzi"
-      ? `提示：${random.meaning || random.pinyin || "输入与题目相同的汉字"}`
-      : `提示：请输入拼音（可不带声调）；释义：${random.meaning || "—"}`;
-  refs.answerInput.value = "";
-  refs.answerInput.focus();
+      ? `提示：${state.prompt.meaning || state.prompt.pinyin || "输入与题目相同的汉字"}`
+      : `提示：请输入拼音（可不带声调）；释义：${state.prompt.meaning || "—"}`;
+}
+
+function advancePrompt() {
+  if (state.promptQueue.length) {
+    state.promptQueue.shift();
+  }
+  refillPromptQueue(30);
+  renderQueueStream();
+  updatePromptDisplay();
 }
 
 function updateWorksheetLinkByWrong() {
@@ -324,105 +326,132 @@ function updateWorksheetLinkByWrong() {
     : "./worksheet.html";
 }
 
-function getKeyboardSetChars() {
-  return KEYBOARD_SETS[state.keyboard.keySet] || KEYBOARD_SETS.home;
+function getAnswerSnapshot(inputValue) {
+  const input = String(inputValue ?? "").trim();
+  if (!state.prompt) {
+    return {
+      input,
+      expectedView: "",
+      exact: false,
+      partial: false,
+    };
+  }
+  if (state.mode === "hanzi") {
+    const expected = state.prompt.text;
+    return {
+      input,
+      expectedView: expected,
+      exact: input === expected,
+      partial: !!input && expected.startsWith(input),
+    };
+  }
+  const normalizedInput = normalizePinyin(input);
+  const expectedNormalized = (state.prompt.expectedPinyin || [])[0] || "";
+  return {
+    input,
+    expectedView: state.prompt.pinyin || "（可不带声调）",
+    exact: !!normalizedInput && normalizedInput === expectedNormalized,
+    partial: !!normalizedInput && expectedNormalized.startsWith(normalizedInput),
+  };
 }
 
-function getKeyboardSetLabel(keySet) {
-  return KEYBOARD_SET_LABEL[keySet] || "键位练习";
-}
-
-function getKeyboardLevelLabel(level) {
-  return KEYBOARD_LEVEL_LABEL[level] || "初级";
-}
-
-function getKeyboardLevelConfig(level) {
-  return KEYBOARD_LEVEL_CONFIG[level] || KEYBOARD_LEVEL_CONFIG.beginner;
-}
-
-function toDateKey(ts) {
-  const date = new Date(Number.isFinite(ts) ? ts : Date.now());
-  const y = date.getFullYear();
-  const m = `${date.getMonth() + 1}`.padStart(2, "0");
-  const d = `${date.getDate()}`.padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function updateFingerHint() {
-  const key = state.keyboard.targetKey;
-  if (!key) {
-    refs.fingerHintText.textContent = "手指提示：请点击“开始键位练习”。";
+function evaluateInputProgress() {
+  if (!state.running || !state.prompt || state.composing) {
     return;
   }
-  const finger = FINGER_HINTS[key] || "对应手指";
-  refs.fingerHintText.textContent = `手指提示：目标按键 ${formatKeyLabel(key)}，建议使用 ${finger}。`;
-}
-
-function renderVirtualKeyboard() {
-  refs.virtualKeyboard.innerHTML = "";
-  KEYBOARD_ROWS.forEach((rowKeys) => {
-    const row = document.createElement("div");
-    row.className = "keyboard-row";
-    rowKeys.forEach((key) => {
-      const item = document.createElement("span");
-      item.className = "vk-key";
-      if (key === state.keyboard.targetKey) {
-        item.classList.add("target");
-      }
-      if (key === state.keyboard.flashKey && state.keyboard.flashType) {
-        item.classList.add(state.keyboard.flashType);
-      }
-      item.textContent = formatKeyLabel(key);
-      row.appendChild(item);
-    });
-    refs.virtualKeyboard.appendChild(row);
-  });
-}
-
-function flashKeyboardKey(key, type) {
-  if (state.keyboard.flashTimerId) {
-    clearTimeout(state.keyboard.flashTimerId);
-  }
-  state.keyboard.flashKey = key;
-  state.keyboard.flashType = type;
-  renderVirtualKeyboard();
-  state.keyboard.flashTimerId = setTimeout(() => {
-    state.keyboard.flashKey = "";
-    state.keyboard.flashType = "";
-    renderVirtualKeyboard();
-  }, 150);
-}
-
-function pickKeyboardTarget() {
-  const set = getKeyboardSetChars();
-  if (!set.length) {
-    state.keyboard.targetKey = "";
-    refreshKeyboardBoard();
-    updateFingerHint();
-    renderVirtualKeyboard();
+  const snap = getAnswerSnapshot(refs.answerInput.value);
+  if (!snap.input) {
+    setFeedback("warn", "开始输入后会实时匹配正确性。");
     return;
   }
-  let next = set[Math.floor(Math.random() * set.length)];
-  if (set.length > 1) {
-    while (next === state.keyboard.targetKey) {
-      next = set[Math.floor(Math.random() * set.length)];
-    }
+  if (snap.exact) {
+    submitAnswer(true);
+    return;
   }
-  state.keyboard.targetKey = next;
-  refreshKeyboardBoard();
-  updateFingerHint();
-  renderVirtualKeyboard();
+  if (snap.partial) {
+    setFeedback("warn", "匹配中：继续输入即可自动切题。");
+    return;
+  }
+  setFeedback("bad", `当前输入与目标不匹配，目标参考：${snap.expectedView}`);
 }
 
-function normalizeKeyboardInput(key) {
-  const text = String(key ?? "").toLowerCase();
-  if (text === "；") {
-    return ";";
+function applyCorrect() {
+  state.correct += 1;
+  state.total += 1;
+  state.combo += 1;
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+  if (state.prompt?.kind === "word") {
+    state.wordCorrect += 1;
   }
-  if (text.length !== 1) {
-    return "";
+  state.score += 12 + state.combo * 2;
+  setFeedback("ok", `正确！连击 ${state.combo}，自动进入下一题。`);
+  tryCompleteMission(false);
+}
+
+function applyWrong(expectedText, sourceText) {
+  state.total += 1;
+  state.combo = 0;
+  state.lives -= 1;
+  hanChars(sourceText || "").forEach((char) => state.wrongChars.add(char));
+  setFeedback("bad", `错误，正确答案应为：${expectedText}`);
+  updateWorksheetLinkByWrong();
+}
+
+function submitAnswer(fromAuto) {
+  if (!state.running || !state.prompt) {
+    return;
   }
-  return /[a-z;]/.test(text) ? text : "";
+  const snap = getAnswerSnapshot(refs.answerInput.value);
+  if (!snap.input) {
+    return;
+  }
+  if (snap.exact) {
+    applyCorrect();
+  } else {
+    applyWrong(snap.expectedView, state.prompt.text);
+  }
+  refreshScoreBoard();
+
+  if (state.lives <= 0) {
+    endGame("生命值耗尽");
+    return;
+  }
+  refs.answerInput.value = "";
+  advancePrompt();
+  if (!fromAuto) {
+    refs.answerInput.focus();
+  }
+}
+
+function skipPrompt() {
+  if (!state.running || !state.prompt) {
+    return;
+  }
+  state.combo = 0;
+  state.lives -= 1;
+  state.total += 1;
+  hanChars(state.prompt.text).forEach((char) => state.wrongChars.add(char));
+  const expected = state.mode === "hanzi" ? state.prompt.text : state.prompt.pinyin || "（可不带声调）";
+  setFeedback("warn", `已跳过，正确答案参考：${expected}`);
+  refreshScoreBoard();
+  updateWorksheetLinkByWrong();
+  if (state.lives <= 0) {
+    endGame("生命值耗尽");
+    return;
+  }
+  refs.answerInput.value = "";
+  advancePrompt();
+}
+
+function tick() {
+  if (!state.running) {
+    return;
+  }
+  state.timeLeft -= 1;
+  refreshScoreBoard();
+  if (state.timeLeft <= 0) {
+    endGame("时间到");
+  }
 }
 
 function endGame(reason) {
@@ -434,13 +463,13 @@ function endGame(reason) {
     clearInterval(state.timerId);
     state.timerId = null;
   }
-
+  tryCompleteMission(true);
   const accuracy = state.total ? Math.round((state.correct / state.total) * 100) : 0;
-  setFeedback("warn", `${reason}。本局结束，得分 ${state.score}。`);
+
   refs.promptType.textContent = "题型：本局已结束";
   refs.promptText.textContent = "可点击“开始闯关”再来一局";
-  refs.promptHint.textContent = "建议把错题字加入字帖继续巩固。";
-  refs.answerInput.value = "";
+  refs.promptHint.textContent = "系统将保留战绩，并可将错题加入字帖继续巩固。";
+  setFeedback("warn", `${reason}。本局结束，得分 ${state.score}。`);
 
   const record = {
     mode: state.mode,
@@ -463,297 +492,13 @@ function endGame(reason) {
     <p>正确 / 总题：${state.correct} / ${state.total}</p>
     <p>命中率：${accuracy}%</p>
     <p>连击峰值：${state.maxCombo}</p>
+    <p>词组正确数：${state.wordCorrect}</p>
+    <p>趣味任务：${state.mission?.completed ? "已完成" : "未完成"}</p>
     <p>错题字：${[...state.wrongChars].join("") || "无"}</p>
   `;
+  renderMissionPanel();
   updateWorksheetLinkByWrong();
   renderHistory();
-}
-
-function renderKeyboardHistory() {
-  refs.keyboardHistoryBody.innerHTML = "";
-  const records =
-    store && typeof store.getKeyboardPracticeRecords === "function" ? store.getKeyboardPracticeRecords() : [];
-  const latest = records.slice(-12).reverse();
-  if (!latest.length) {
-    refs.keyboardHistoryBody.innerHTML = `<tr><td colspan="8" class="empty">暂无记录，开始第一局键位练习吧。</td></tr>`;
-    return;
-  }
-  latest.forEach((item) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${formatTime(item.ts)}</td>
-      <td>${getKeyboardSetLabel(item.keySet)}</td>
-      <td>${getKeyboardLevelLabel(item.level)}</td>
-      <td>${item.score || 0}</td>
-      <td>${item.hits}</td>
-      <td>${item.accuracy}%</td>
-      <td>${item.speed}</td>
-      <td>${item.maxStreak}</td>
-    `;
-    refs.keyboardHistoryBody.appendChild(row);
-  });
-}
-
-function renderDailyTask(task) {
-  if (!task) {
-    refs.dailyTaskTitle.textContent = "今日任务不可用";
-    refs.dailyTaskDesc.textContent = "当前浏览器未启用本地存储。";
-    refs.dailyTaskProgress.textContent = "进度：-";
-    refs.dailyTaskStatus.textContent = "状态：-";
-    refs.dailyTaskApplyBtn.disabled = true;
-    return;
-  }
-  refs.dailyTaskApplyBtn.disabled = false;
-  refs.dailyTaskTitle.textContent = `今日任务（${getKeyboardLevelLabel(task.level)}）`;
-  refs.dailyTaskDesc.textContent = `目标：键位集 ${getKeyboardSetLabel(task.keySet)}，时长 ${task.duration}s，命中 ≥ ${
-    task.targetHits
-  }，命中率 ≥ ${task.targetAccuracy}% ，速度 ≥ ${task.targetSpeed} 键/分。`;
-  refs.dailyTaskProgress.textContent = `进度：今日已练 ${task.sessionCount || 0} 局，最佳命中 ${
-    task.bestHits || 0
-  }，最佳命中率 ${task.bestAccuracy || 0}% ，最佳速度 ${task.bestSpeed || 0} 键/分。`;
-  refs.dailyTaskStatus.textContent = task.completed
-    ? `状态：已完成（${formatTime(task.completedAt || Date.now())}）`
-    : "状态：未完成";
-}
-
-function loadDailyTask() {
-  if (!store || typeof store.getKeyboardDailyTask !== "function") {
-    renderDailyTask(null);
-    return null;
-  }
-  const task = store.getKeyboardDailyTask(toDateKey());
-  renderDailyTask(task);
-  return task;
-}
-
-function applyDailyTaskSettings() {
-  const task = loadDailyTask();
-  if (!task) {
-    setKeyboardFeedback("warn", "每日任务暂不可用。");
-    return;
-  }
-  refs.keySetSelect.value = task.keySet;
-  refs.keyboardDurationSelect.value = `${task.duration}`;
-  refs.keyboardLevelSelect.value = task.level;
-  setKeyboardFeedback("ok", "已应用今日任务配置，可直接开始练习。");
-}
-
-function endKeyboardPractice(reason) {
-  if (!state.keyboard.running) {
-    return;
-  }
-  const keyboard = state.keyboard;
-  keyboard.running = false;
-  if (keyboard.timerId) {
-    clearInterval(keyboard.timerId);
-    keyboard.timerId = null;
-  }
-  if (keyboard.flashTimerId) {
-    clearTimeout(keyboard.flashTimerId);
-    keyboard.flashTimerId = null;
-  }
-
-  const stats = refreshKeyboardBoard();
-  keyboard.targetKey = "";
-  keyboard.flashKey = "";
-  keyboard.flashType = "";
-  updateFingerHint();
-  renderVirtualKeyboard();
-  setKeyboardFeedback("warn", `${reason}。本局命中 ${keyboard.hits} 次。`);
-
-  const record = {
-    keySet: keyboard.keySet,
-    level: keyboard.level,
-    duration: keyboard.duration,
-    score: keyboard.score,
-    hits: keyboard.hits,
-    misses: keyboard.misses,
-    total: keyboard.hits + keyboard.misses,
-    accuracy: stats.accuracy,
-    speed: stats.speed,
-    maxStreak: keyboard.maxStreak,
-    source: "keyboard_practice",
-  };
-  if (store && typeof store.appendKeyboardPracticeRecord === "function") {
-    store.appendKeyboardPracticeRecord(record);
-  }
-
-  refs.keyboardSummary.innerHTML = `
-    <p>训练关卡：${getKeyboardLevelLabel(keyboard.level)}</p>
-    <p>键位集：${getKeyboardSetLabel(keyboard.keySet)}</p>
-    <p>键位积分：${keyboard.score}</p>
-    <p>命中 / 总按键：${keyboard.hits} / ${keyboard.hits + keyboard.misses}</p>
-    <p>命中率：${stats.accuracy}%</p>
-    <p>速度：${stats.speed} 键/分</p>
-    <p>连对峰值：${keyboard.maxStreak}</p>
-  `;
-
-  if (store && typeof store.updateKeyboardDailyTaskProgress === "function") {
-    const task = store.updateKeyboardDailyTaskProgress(record, toDateKey());
-    if (task?.justCompleted) {
-      setKeyboardFeedback("ok", "恭喜完成今日键位任务！");
-    }
-    renderDailyTask(task);
-  }
-  renderKeyboardHistory();
-}
-
-function tickKeyboardPractice() {
-  if (!state.keyboard.running) {
-    return;
-  }
-  state.keyboard.timeLeft -= 1;
-  refreshKeyboardBoard();
-  if (state.keyboard.timeLeft <= 0) {
-    endKeyboardPractice("时间到");
-  }
-}
-
-function startKeyboardPractice() {
-  if (state.keyboard.running) {
-    return;
-  }
-  state.keyboard.keySet = refs.keySetSelect.value || "home";
-  state.keyboard.level = refs.keyboardLevelSelect.value || "beginner";
-  state.keyboard.duration = Number.parseInt(refs.keyboardDurationSelect.value, 10) || 60;
-  state.keyboard.timeLeft = state.keyboard.duration;
-  state.keyboard.score = 0;
-  state.keyboard.hits = 0;
-  state.keyboard.misses = 0;
-  state.keyboard.streak = 0;
-  state.keyboard.maxStreak = 0;
-  state.keyboard.startTs = Date.now();
-  state.keyboard.flashKey = "";
-  state.keyboard.flashType = "";
-  state.keyboard.running = true;
-
-  refs.keyboardSummary.innerHTML = `<p class="empty">键位练习进行中...</p>`;
-  setKeyboardFeedback("warn", `键位练习开始（${getKeyboardLevelLabel(state.keyboard.level)}），请按下目标按键。`);
-  pickKeyboardTarget();
-
-  if (state.keyboard.timerId) {
-    clearInterval(state.keyboard.timerId);
-  }
-  state.keyboard.timerId = setInterval(tickKeyboardPractice, 1000);
-  refreshKeyboardBoard();
-}
-
-function handleKeyboardPracticeInput(event) {
-  if (!state.keyboard.running || event.repeat) {
-    return;
-  }
-  const key = normalizeKeyboardInput(event.key);
-  if (!key) {
-    return;
-  }
-  event.preventDefault();
-  const allowed = getKeyboardSetChars();
-  const levelConfig = getKeyboardLevelConfig(state.keyboard.level);
-  if (key === state.keyboard.targetKey) {
-    state.keyboard.hits += 1;
-    state.keyboard.streak += 1;
-    state.keyboard.maxStreak = Math.max(state.keyboard.maxStreak, state.keyboard.streak);
-    state.keyboard.score += levelConfig.hitPoint + state.keyboard.streak * levelConfig.streakBonus;
-    setKeyboardFeedback("ok", `正确：${formatKeyLabel(key)}。继续保持！（+${levelConfig.hitPoint}）`);
-    flashKeyboardKey(key, "hit");
-    pickKeyboardTarget();
-  } else {
-    state.keyboard.misses += 1;
-    state.keyboard.streak = 0;
-    state.keyboard.score = Math.max(0, state.keyboard.score - levelConfig.missPenalty);
-    if (allowed.includes(key)) {
-      setKeyboardFeedback(
-        "bad",
-        `按键 ${formatKeyLabel(key)} 错误，目标是 ${formatKeyLabel(state.keyboard.targetKey)}（-${levelConfig.missPenalty}）`
-      );
-    } else {
-      setKeyboardFeedback("warn", `按键 ${formatKeyLabel(key)} 不在当前键位集内。`);
-    }
-    flashKeyboardKey(key, "miss");
-  }
-  refreshKeyboardBoard();
-}
-
-function applyCorrect() {
-  state.correct += 1;
-  state.total += 1;
-  state.combo += 1;
-  state.maxCombo = Math.max(state.maxCombo, state.combo);
-  state.score += 10 + state.combo * 2;
-  setFeedback("ok", `正确！连击 +1，当前连击 ${state.combo}`);
-}
-
-function applyWrong(expectedText, sourceText) {
-  state.total += 1;
-  state.combo = 0;
-  state.lives -= 1;
-  hanChars(sourceText || "").forEach((char) => state.wrongChars.add(char));
-  setFeedback("bad", `错误，正确答案应为：${expectedText}`);
-  updateWorksheetLinkByWrong();
-}
-
-function submitAnswer() {
-  if (!state.running || !state.prompt) {
-    return;
-  }
-  const input = refs.answerInput.value.trim();
-  if (!input) {
-    return;
-  }
-
-  let ok = false;
-  if (state.mode === "hanzi") {
-    ok = input === state.prompt.text;
-  } else {
-    const norm = normalizePinyin(input);
-    ok = state.prompt.expectedPinyin.includes(norm);
-  }
-
-  if (ok) {
-    applyCorrect();
-  } else {
-    const expected = state.mode === "hanzi" ? state.prompt.text : state.prompt.pinyin || "（可不带声调）";
-    applyWrong(expected, state.prompt.text);
-  }
-  refreshScoreBoard();
-
-  if (state.lives <= 0) {
-    endGame("生命值耗尽");
-    return;
-  }
-  pickPrompt();
-}
-
-function skipPrompt() {
-  if (!state.running || !state.prompt) {
-    return;
-  }
-  state.combo = 0;
-  state.lives -= 1;
-  state.total += 1;
-  hanChars(state.prompt.text).forEach((char) => state.wrongChars.add(char));
-  setFeedback(
-    "warn",
-    `已跳过，正确答案参考：${state.mode === "hanzi" ? state.prompt.text : state.prompt.pinyin || "（可不带声调）"}`
-  );
-  updateWorksheetLinkByWrong();
-  refreshScoreBoard();
-  if (state.lives <= 0) {
-    endGame("生命值耗尽");
-    return;
-  }
-  pickPrompt();
-}
-
-function tick() {
-  if (!state.running) {
-    return;
-  }
-  state.timeLeft -= 1;
-  refreshScoreBoard();
-  if (state.timeLeft <= 0) {
-    endGame("时间到");
-  }
 }
 
 function startGame() {
@@ -769,22 +514,31 @@ function startGame() {
   state.lives = 3;
   state.total = 0;
   state.correct = 0;
+  state.wordCorrect = 0;
   state.wrongChars = new Set();
+  state.mission = createMission();
   state.pool = buildRoundPool();
   state.running = true;
 
   if (!state.pool.length) {
     state.running = false;
     refreshScoreBoard();
-    setFeedback("bad", "当前条件下没有可用题目，请调整设置。");
+    setFeedback("bad", "当前条件下没有可用题目，请调整筛选设置。");
     return;
   }
 
+  state.promptQueue = [];
+  refillPromptQueue(30);
+  renderQueueStream();
+  updatePromptDisplay();
+  renderMissionPanel();
+
   refreshScoreBoard();
-  setFeedback("warn", "游戏开始，尽量保持连击！");
+  setFeedback("warn", "闯关开始：实时匹配已启用，输入正确会自动切题。");
   refs.sessionSummary.innerHTML = `<p class="empty">本局进行中...</p>`;
+  refs.answerInput.value = "";
+  refs.answerInput.focus();
   updateWorksheetLinkByWrong();
-  pickPrompt();
 
   if (state.timerId) {
     clearInterval(state.timerId);
@@ -827,33 +581,33 @@ function bindEvents() {
   refs.startBtn.addEventListener("click", startGame);
   refs.skipBtn.addEventListener("click", skipPrompt);
   refs.endBtn.addEventListener("click", () => endGame("已手动结束"));
-  refs.submitBtn.addEventListener("click", submitAnswer);
+  refs.submitBtn.addEventListener("click", () => submitAnswer(false));
+  refs.answerInput.addEventListener("compositionstart", () => {
+    state.composing = true;
+  });
+  refs.answerInput.addEventListener("compositionend", () => {
+    state.composing = false;
+    evaluateInputProgress();
+  });
+  refs.answerInput.addEventListener("input", evaluateInputProgress);
   refs.answerInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      submitAnswer();
+      submitAnswer(false);
     }
   });
   refs.addWrongToCartBtn.addEventListener("click", addWrongToCart);
-  refs.keyboardStartBtn.addEventListener("click", startKeyboardPractice);
-  refs.keyboardEndBtn.addEventListener("click", () => endKeyboardPractice("已手动结束"));
-  refs.dailyTaskApplyBtn.addEventListener("click", applyDailyTaskSettings);
-  window.addEventListener("keydown", handleKeyboardPracticeInput);
 }
 
 function bootstrap() {
   bindEvents();
   refreshScoreBoard();
-  refreshKeyboardBoard();
   refs.promptType.textContent = "题型：待开始";
   refs.promptHint.textContent = "提示：选择模式后点击“开始闯关”。";
   refs.sessionSummary.innerHTML = `<p class="empty">尚未开始本局。</p>`;
-  refs.keyboardSummary.innerHTML = `<p class="empty">尚未开始键位练习。</p>`;
-  updateFingerHint();
-  loadDailyTask();
+  renderMissionPanel();
   renderHistory();
-  renderKeyboardHistory();
-  renderVirtualKeyboard();
+  renderQueueStream();
   updateWorksheetLinkByWrong();
 }
 

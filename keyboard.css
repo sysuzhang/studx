@@ -92,9 +92,14 @@ h2 {
   margin: 0 0 10px;
 }
 
+h3 {
+  margin: 12px 0 8px;
+  font-size: 16px;
+}
+
 .form-grid {
   display: grid;
-  grid-template-columns: 100px 1fr 100px 1fr;
+  grid-template-columns: 108px 1fr 70px 1fr 80px 1fr;
   gap: 8px 10px;
   align-items: center;
 }
@@ -105,17 +110,11 @@ button {
   font: inherit;
 }
 
-input,
 select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
   background: #fff;
-}
-
-input[type="checkbox"] {
-  justify-self: start;
-  transform: scale(1.08);
 }
 
 .actions {
@@ -182,20 +181,13 @@ button.ghost {
   gap: 12px;
 }
 
-.game-stage {
+.stage-panel {
   display: grid;
   gap: 10px;
 }
 
-.meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.typing-stage {
-  margin-top: 4px;
-  min-height: 340px;
+.key-stage {
+  min-height: 320px;
   border: 1px solid #d8e5fb;
   border-radius: 12px;
   background:
@@ -206,22 +198,24 @@ button.ghost {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 20px 16px;
+  padding: 14px;
 }
 
-.prompt-text {
-  width: 100%;
-  text-align: center;
-  font-size: clamp(72px, 10vw, 138px);
+.target-key {
+  margin: 0;
+  font-size: clamp(86px, 12vw, 150px);
   font-weight: 800;
-  line-height: 1.1;
-  font-family: "KaiTi", "STKaiti", serif;
-  color: #0f172a;
-  word-break: break-all;
+  line-height: 1;
+  color: #1e3a8a;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .queue-wrap {
-  margin-top: 4px;
   border: 1px solid #dbe7fb;
   border-radius: 12px;
   padding: 10px;
@@ -239,15 +233,15 @@ button.ghost {
 
 .queue-chip {
   flex: 0 0 auto;
+  min-width: 44px;
+  padding: 8px 10px;
   border: 1px solid #d5e3fa;
   border-radius: 10px;
   background: #fff;
   color: #334155;
-  padding: 8px 10px;
-  font-size: 22px;
-  font-family: "KaiTi", "STKaiti", serif;
-  min-width: 48px;
   text-align: center;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .queue-chip.active {
@@ -257,15 +251,8 @@ button.ghost {
   color: #1d4ed8;
 }
 
-.input-row {
-  margin-top: 2px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-}
-
 .feedback {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
   color: #334155;
 }
@@ -282,18 +269,65 @@ button.ghost {
   color: var(--bad);
 }
 
-.mission-box {
-  border: 1px solid #dce8fb;
-  border-radius: 10px;
+.virtual-keyboard {
+  margin-top: 6px;
   padding: 10px;
-  background: #f8fbff;
+  border: 1px solid #dce7fb;
+  border-radius: 10px;
+  background: #f9fbff;
+  display: grid;
+  gap: 7px;
 }
 
-.mission-title {
+.keyboard-row {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.vk-key {
+  min-width: 38px;
+  height: 34px;
+  border: 1px solid #cfddf5;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 120ms ease;
+}
+
+.vk-key.target {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px #dbe9ff inset;
+}
+
+.vk-key.hit {
+  background: #e8f7ee;
+  border-color: #86d0a2;
+}
+
+.vk-key.miss {
+  background: #fff1f2;
+  border-color: #f3aab3;
+}
+
+.task-box {
+  border: 1px solid #dbe7fb;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.card-title {
   margin: 0 0 6px;
   color: #1e3a8a;
-  font-weight: 700;
   font-size: 15px;
+  font-weight: 700;
 }
 
 .summary-box {
@@ -308,11 +342,6 @@ button.ghost {
   color: #334155;
 }
 
-h3 {
-  margin: 12px 0 8px;
-  font-size: 16px;
-}
-
 .history-wrap {
   overflow: auto;
   border: 1px solid #e7edf8;
@@ -322,7 +351,7 @@ h3 {
 .history-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 420px;
+  min-width: 680px;
 }
 
 .history-table th,
@@ -337,6 +366,32 @@ h3 {
   background: #f8fbff;
 }
 
+.fingering-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.finger-card {
+  border: 1px solid #dbe7fb;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px;
+}
+
+.finger-title {
+  margin: 0 0 4px;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.finger-keys {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+}
+
 .empty {
   margin: 0;
   color: #64748b;
@@ -347,12 +402,12 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .typing-stage {
+  .key-stage {
     min-height: 270px;
   }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 800px) {
   .form-grid {
     grid-template-columns: 1fr;
   }
