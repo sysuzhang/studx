@@ -23,7 +23,7 @@
       </nav>
       <div class="hero">
         <h1>游戏化打字练习</h1>
-        <p>支持汉字打字 / 拼音打字，结合计时、连击、生命值，提升中文输入熟练度。</p>
+        <p>支持汉字打字 / 拼音打字与键盘操作练习，结合计时、连击、生命值，提升中文输入熟练度。</p>
       </div>
     </header>
 
@@ -121,6 +121,83 @@
                 </tr>
               </thead>
               <tbody id="historyBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="layout keyboard-layout">
+        <article class="panel">
+          <h2>键盘操作练习</h2>
+          <p class="meta">通过目标按键引导与虚拟键盘高亮，先熟悉键位，再提升拼音打字效率。</p>
+          <div class="keyboard-controls">
+            <label for="keySetSelect">练习键位集</label>
+            <select id="keySetSelect">
+              <option value="home">基础键位（ASDF JKL;）</option>
+              <option value="pinyin">拼音高频字母（A-Z）</option>
+              <option value="full">全字母 + 分号</option>
+            </select>
+
+            <label for="keyboardDurationSelect">时长</label>
+            <select id="keyboardDurationSelect">
+              <option value="60">60 秒</option>
+              <option value="90">90 秒</option>
+              <option value="120">120 秒</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button id="keyboardStartBtn" type="button">开始键位练习</button>
+            <button id="keyboardEndBtn" type="button" class="ghost">结束键位练习</button>
+          </div>
+
+          <div class="keyboard-stats">
+            <article class="stat">
+              <p class="label">目标按键</p>
+              <p id="targetKeyValue" class="value">-</p>
+            </article>
+            <article class="stat">
+              <p class="label">剩余时间</p>
+              <p id="keyboardTimerValue" class="value">60s</p>
+            </article>
+            <article class="stat">
+              <p class="label">当前连对</p>
+              <p id="keyboardStreakValue" class="value">0</p>
+            </article>
+            <article class="stat">
+              <p class="label">命中率</p>
+              <p id="keyboardAccuracyValue" class="value">0%</p>
+            </article>
+            <article class="stat">
+              <p class="label">速度（键/分）</p>
+              <p id="keyboardSpeedValue" class="value">0</p>
+            </article>
+          </div>
+
+          <p id="fingerHintText" class="meta">手指提示：请点击“开始键位练习”。</p>
+          <p id="keyboardFeedbackText" class="feedback">等待开始...</p>
+          <div id="virtualKeyboard" class="virtual-keyboard"></div>
+        </article>
+
+        <article class="panel">
+          <h2>键位练习战绩</h2>
+          <div id="keyboardSummary" class="summary-box">
+            <p class="empty">尚未完成键位练习。</p>
+          </div>
+          <h3>近期记录</h3>
+          <div class="history-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>键位集</th>
+                  <th>命中</th>
+                  <th>命中率</th>
+                  <th>速度</th>
+                  <th>峰值连对</th>
+                </tr>
+              </thead>
+              <tbody id="keyboardHistoryBody"></tbody>
             </table>
           </div>
         </article>

@@ -3,6 +3,7 @@
   const CALENDAR_COMPLETION_KEY = "studyCalendarCompletionV1";
   const FOLLOW_READING_KEY = "followReadingRecordsV1";
   const TYPING_GAME_KEY = "typingGameRecordsV1";
+  const KEYBOARD_PRACTICE_KEY = "keyboardPracticeRecordsV1";
   const USER_PROFILE_KEY = "userProfileV1";
   const ACTIVITY_LOG_KEY = "learningActivityLogV1";
 
@@ -219,6 +220,70 @@
     };
   }
 
+  function getKeyboardPracticeRecords() {
+    const rows = safeRead(KEYBOARD_PRACTICE_KEY, []);
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+    return rows.filter((item) => item && typeof item === "object");
+  }
+
+  function appendKeyboardPracticeRecord(record) {
+    const rows = getKeyboardPracticeRecords();
+    const item = {
+      ts: Date.now(),
+      keySet: record?.keySet || "home",
+      duration: Number.isFinite(record?.duration) ? record.duration : 60,
+      hits: Number.isFinite(record?.hits) ? record.hits : 0,
+      misses: Number.isFinite(record?.misses) ? record.misses : 0,
+      total: Number.isFinite(record?.total) ? record.total : 0,
+      accuracy: Number.isFinite(record?.accuracy) ? record.accuracy : 0,
+      speed: Number.isFinite(record?.speed) ? record.speed : 0,
+      maxStreak: Number.isFinite(record?.maxStreak) ? record.maxStreak : 0,
+      source: record?.source || "keyboard_practice",
+    };
+    rows.push(item);
+    const compact = rows.slice(-300);
+    safeWrite(KEYBOARD_PRACTICE_KEY, compact);
+    logActivity("keyboard_practice_finish", {
+      keySet: item.keySet,
+      accuracy: item.accuracy,
+      speed: item.speed,
+      hits: item.hits,
+      total: item.total,
+      source: item.source,
+    });
+    return item;
+  }
+
+  function getKeyboardPracticeStats() {
+    const rows = getKeyboardPracticeRecords();
+    if (!rows.length) {
+      return {
+        totalSessions: 0,
+        bestAccuracy: 0,
+        averageAccuracy: 0,
+        bestSpeed: 0,
+        averageSpeed: 0,
+        totalHits: 0,
+      };
+    }
+    const totalSessions = rows.length;
+    const bestAccuracy = Math.max(...rows.map((row) => row.accuracy || 0));
+    const bestSpeed = Math.max(...rows.map((row) => row.speed || 0));
+    const sumAccuracy = rows.reduce((sum, row) => sum + (row.accuracy || 0), 0);
+    const sumSpeed = rows.reduce((sum, row) => sum + (row.speed || 0), 0);
+    const totalHits = rows.reduce((sum, row) => sum + (row.hits || 0), 0);
+    return {
+      totalSessions,
+      bestAccuracy,
+      averageAccuracy: Math.round(sumAccuracy / totalSessions),
+      bestSpeed,
+      averageSpeed: Math.round(sumSpeed / totalSessions),
+      totalHits,
+    };
+  }
+
   function getUserProfile() {
     const profile = safeRead(USER_PROFILE_KEY, {});
     const defaults = {
@@ -255,6 +320,7 @@
       CALENDAR_COMPLETION_KEY,
       FOLLOW_READING_KEY,
       TYPING_GAME_KEY,
+      KEYBOARD_PRACTICE_KEY,
       USER_PROFILE_KEY,
       ACTIVITY_LOG_KEY,
     },
@@ -271,6 +337,9 @@
     getTypingGameRecords,
     appendTypingGameRecord,
     getTypingGameStats,
+    getKeyboardPracticeRecords,
+    appendKeyboardPracticeRecord,
+    getKeyboardPracticeStats,
     getUserProfile,
     saveUserProfile,
     getActivityLogs,

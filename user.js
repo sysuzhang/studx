@@ -110,6 +110,9 @@ function renderStats() {
   const typingStats = store
     ? store.getTypingGameStats()
     : { totalGames: 0, bestScore: 0, averageScore: 0, averageAccuracy: 0, totalCorrect: 0 };
+  const keyboardStats = store
+    ? store.getKeyboardPracticeStats()
+    : { totalSessions: 0, bestAccuracy: 0, averageAccuracy: 0, bestSpeed: 0, averageSpeed: 0, totalHits: 0 };
   const cart = store ? store.getWorksheetCart() : [];
   const progress = library.length
     ? Math.round((calendarStats.learnedChars.length / library.length) * 100)
@@ -149,6 +152,14 @@ function renderStats() {
       <p class="value">${typingStats.averageAccuracy}%</p>
     </article>
     <article class="stat">
+      <p class="label">键位练习场次</p>
+      <p class="value">${keyboardStats.totalSessions}</p>
+    </article>
+    <article class="stat">
+      <p class="label">键位平均速度</p>
+      <p class="value">${keyboardStats.averageSpeed}</p>
+    </article>
+    <article class="stat">
       <p class="label">字帖收藏汉字</p>
       <p class="value">${cart.length}</p>
     </article>
@@ -165,6 +176,9 @@ function evaluateLevel() {
   const typingStats = store
     ? store.getTypingGameStats()
     : { totalGames: 0, bestScore: 0, averageScore: 0, averageAccuracy: 0, totalCorrect: 0 };
+  const keyboardStats = store
+    ? store.getKeyboardPracticeStats()
+    : { totalSessions: 0, bestAccuracy: 0, averageAccuracy: 0, bestSpeed: 0, averageSpeed: 0, totalHits: 0 };
   const profile = store ? store.getUserProfile() : { targetLevel: "HSK1", dailyMinutes: 20, goals: "" };
   const learned = calendarStats.learnedChars.length;
 
@@ -177,6 +191,7 @@ function evaluateLevel() {
 
   const pron = followStats.total >= 10 ? `${followStats.accuracy}%` : "样本不足";
   const typing = typingStats.totalGames >= 3 ? `${typingStats.averageAccuracy}%` : "样本不足";
+  const keyboard = keyboardStats.totalSessions >= 3 ? `${keyboardStats.averageSpeed} 键/分` : "样本不足";
   const gapText =
     profile.targetLevel === "HSK1"
       ? learned >= 50
@@ -203,13 +218,18 @@ function evaluateLevel() {
       : typingStats.averageAccuracy >= 80
       ? "打字命中率表现优秀，可提高到 90 秒以上挑战并加入词组题。"
       : "打字练习建议从 60 秒短局开始，优先巩固错题并加入字帖反复书写。",
+    keyboardStats.totalSessions < 3
+      ? "建议先进行“键盘操作练习”，优先熟悉 ASDF JKL; 基础键位。"
+      : keyboardStats.averageSpeed >= 140
+      ? "键位熟练度较好，可在打字闯关中提高节奏并减少跳过。"
+      : "键位练习可先用 60 秒短局，重点关注目标按键与对应手指。",
   ];
 
   refs.evaluationBox.innerHTML = `
     <h3>当前学习评价：${escapeHtml(stage)}</h3>
-    <p>跟读评价：${escapeHtml(pron)}；打字命中率：${escapeHtml(typing)}；累计打卡天数：${
-    calendarStats.activeDays
-  } 天。</p>
+    <p>跟读评价：${escapeHtml(pron)}；打字命中率：${escapeHtml(typing)}；键位速度：${escapeHtml(
+    keyboard
+  )}；累计打卡天数：${calendarStats.activeDays} 天。</p>
     <p>目标匹配：${escapeHtml(gapText)}</p>
     <h3>个性化建议</h3>
     <ul>${suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
@@ -271,6 +291,9 @@ function activityMessage(log) {
     return `完成打字闯关（${modeText}）：得分 ${log.payload?.score ?? 0}，命中率 ${
       log.payload?.accuracy ?? 0
     }%`;
+  }
+  if (log.type === "keyboard_practice_finish") {
+    return `完成键位练习：命中率 ${log.payload?.accuracy ?? 0}% ，速度 ${log.payload?.speed ?? 0} 键/分`;
   }
   return "完成了一次学习操作";
 }
