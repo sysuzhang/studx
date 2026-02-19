@@ -2,6 +2,7 @@
   const WORKSHEET_CART_KEY = "worksheetCharCartV1";
   const CALENDAR_COMPLETION_KEY = "studyCalendarCompletionV1";
   const FOLLOW_READING_KEY = "followReadingRecordsV1";
+  const TYPING_GAME_KEY = "typingGameRecordsV1";
   const USER_PROFILE_KEY = "userProfileV1";
   const ACTIVITY_LOG_KEY = "learningActivityLogV1";
 
@@ -157,6 +158,67 @@
     return { total, ok, warn, bad, accuracy };
   }
 
+  function getTypingGameRecords() {
+    const rows = safeRead(TYPING_GAME_KEY, []);
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+    return rows.filter((item) => item && typeof item === "object");
+  }
+
+  function appendTypingGameRecord(record) {
+    const rows = getTypingGameRecords();
+    const item = {
+      ts: Date.now(),
+      mode: record?.mode || "hanzi",
+      score: Number.isFinite(record?.score) ? record.score : 0,
+      accuracy: Number.isFinite(record?.accuracy) ? record.accuracy : 0,
+      correct: Number.isFinite(record?.correct) ? record.correct : 0,
+      total: Number.isFinite(record?.total) ? record.total : 0,
+      maxCombo: Number.isFinite(record?.maxCombo) ? record.maxCombo : 0,
+      duration: Number.isFinite(record?.duration) ? record.duration : 0,
+      wrongChars: Array.isArray(record?.wrongChars) ? toHanCharArray(record.wrongChars) : [],
+      source: record?.source || "typing",
+    };
+    rows.push(item);
+    const compact = rows.slice(-300);
+    safeWrite(TYPING_GAME_KEY, compact);
+    logActivity("typing_game_finish", {
+      mode: item.mode,
+      score: item.score,
+      accuracy: item.accuracy,
+      correct: item.correct,
+      total: item.total,
+      source: item.source,
+    });
+    return item;
+  }
+
+  function getTypingGameStats() {
+    const rows = getTypingGameRecords();
+    if (!rows.length) {
+      return {
+        totalGames: 0,
+        bestScore: 0,
+        averageScore: 0,
+        averageAccuracy: 0,
+        totalCorrect: 0,
+      };
+    }
+    const totalGames = rows.length;
+    const bestScore = Math.max(...rows.map((row) => row.score || 0));
+    const sumScore = rows.reduce((sum, row) => sum + (row.score || 0), 0);
+    const sumAccuracy = rows.reduce((sum, row) => sum + (row.accuracy || 0), 0);
+    const totalCorrect = rows.reduce((sum, row) => sum + (row.correct || 0), 0);
+    return {
+      totalGames,
+      bestScore,
+      averageScore: Math.round(sumScore / totalGames),
+      averageAccuracy: Math.round(sumAccuracy / totalGames),
+      totalCorrect,
+    };
+  }
+
   function getUserProfile() {
     const profile = safeRead(USER_PROFILE_KEY, {});
     const defaults = {
@@ -192,6 +254,7 @@
       WORKSHEET_CART_KEY,
       CALENDAR_COMPLETION_KEY,
       FOLLOW_READING_KEY,
+      TYPING_GAME_KEY,
       USER_PROFILE_KEY,
       ACTIVITY_LOG_KEY,
     },
@@ -205,6 +268,9 @@
     getFollowReadingRecords,
     appendFollowReadingRecord,
     getFollowReadingStats,
+    getTypingGameRecords,
+    appendTypingGameRecord,
+    getTypingGameStats,
     getUserProfile,
     saveUserProfile,
     getActivityLogs,

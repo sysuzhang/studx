@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>打字闯关 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./typing.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./typing.html" class="active">打字闯关</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html">汉字总览</a>
+          <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html">用户中心</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>游戏化打字练习</h1>
+        <p>支持汉字打字 / 拼音打字，结合计时、连击、生命值，提升中文输入熟练度。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel">
+        <h2>闯关设置</h2>
+        <div class="form-grid">
+          <label for="modeSelect">练习模式</label>
+          <select id="modeSelect">
+            <option value="hanzi">汉字打字</option>
+            <option value="pinyin">拼音打字</option>
+          </select>
+
+          <label for="levelFilter">级别范围</label>
+          <select id="levelFilter">
+            <option value="all">全部</option>
+            <option value="basic">启蒙 / HSK1</option>
+            <option value="mid">HSK2 / HSK3</option>
+            <option value="high">HSK4+</option>
+          </select>
+
+          <label for="durationSelect">闯关时长</label>
+          <select id="durationSelect">
+            <option value="60">60 秒</option>
+            <option value="90">90 秒</option>
+            <option value="120">120 秒</option>
+          </select>
+
+          <label for="includeWords">包含词组题</label>
+          <input id="includeWords" type="checkbox" checked />
+        </div>
+        <div class="actions">
+          <button id="startBtn" type="button">开始闯关</button>
+          <button id="skipBtn" type="button" class="ghost">跳过（扣 1 生命）</button>
+          <button id="endBtn" type="button" class="ghost">提前结束</button>
+        </div>
+      </section>
+
+      <section class="panel score-board">
+        <article class="stat">
+          <p class="label">分数</p>
+          <p id="scoreValue" class="value">0</p>
+        </article>
+        <article class="stat">
+          <p class="label">连击</p>
+          <p id="comboValue" class="value">0</p>
+        </article>
+        <article class="stat">
+          <p class="label">生命值</p>
+          <p id="lifeValue" class="value">❤ ❤ ❤</p>
+        </article>
+        <article class="stat">
+          <p class="label">剩余时间</p>
+          <p id="timerValue" class="value">60s</p>
+        </article>
+        <article class="stat">
+          <p class="label">命中率</p>
+          <p id="accuracyValue" class="value">0%</p>
+        </article>
+      </section>
+
+      <section class="layout">
+        <article class="panel game-panel">
+          <h2>当前题目</h2>
+          <p id="promptType" class="meta">题型：-</p>
+          <div id="promptText" class="prompt-text">点击“开始闯关”开始练习</div>
+          <p id="promptHint" class="meta">提示：-</p>
+
+          <div class="input-row">
+            <input id="answerInput" type="text" placeholder="在这里输入答案后按回车" />
+            <button id="submitBtn" type="button">提交</button>
+          </div>
+
+          <p id="feedbackText" class="feedback">等待开始...</p>
+
+          <div class="actions">
+            <button id="addWrongToCartBtn" type="button" class="ghost">将本局错题加入字帖</button>
+            <a id="openWorksheetLink" class="link-btn" href="./worksheet.html">打开字帖工坊</a>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>本局摘要</h2>
+          <div id="sessionSummary" class="summary-box"></div>
+          <h3>近期战绩</h3>
+          <div class="history-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>模式</th>
+                  <th>分数</th>
+                  <th>命中率</th>
+                  <th>连击峰值</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="./learning-store.js"></script>
+    <script src="./hanzi-data.js"></script>
+    <script src="./typing.js" defer></script>
+  </body>
+</html>

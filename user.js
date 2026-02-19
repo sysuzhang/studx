@@ -107,6 +107,9 @@ function getCalendarStats() {
 function renderStats() {
   const calendarStats = getCalendarStats();
   const followStats = store ? store.getFollowReadingStats() : { total: 0, ok: 0, warn: 0, bad: 0, accuracy: 0 };
+  const typingStats = store
+    ? store.getTypingGameStats()
+    : { totalGames: 0, bestScore: 0, averageScore: 0, averageAccuracy: 0, totalCorrect: 0 };
   const cart = store ? store.getWorksheetCart() : [];
   const progress = library.length
     ? Math.round((calendarStats.learnedChars.length / library.length) * 100)
@@ -134,6 +137,18 @@ function renderStats() {
       <p class="value">${followStats.accuracy}%</p>
     </article>
     <article class="stat">
+      <p class="label">打字闯关场次</p>
+      <p class="value">${typingStats.totalGames}</p>
+    </article>
+    <article class="stat">
+      <p class="label">打字最高分</p>
+      <p class="value">${typingStats.bestScore}</p>
+    </article>
+    <article class="stat">
+      <p class="label">打字平均命中率</p>
+      <p class="value">${typingStats.averageAccuracy}%</p>
+    </article>
+    <article class="stat">
       <p class="label">字帖收藏汉字</p>
       <p class="value">${cart.length}</p>
     </article>
@@ -147,6 +162,9 @@ function renderStats() {
 function evaluateLevel() {
   const calendarStats = getCalendarStats();
   const followStats = store ? store.getFollowReadingStats() : { accuracy: 0, total: 0 };
+  const typingStats = store
+    ? store.getTypingGameStats()
+    : { totalGames: 0, bestScore: 0, averageScore: 0, averageAccuracy: 0, totalCorrect: 0 };
   const profile = store ? store.getUserProfile() : { targetLevel: "HSK1", dailyMinutes: 20, goals: "" };
   const learned = calendarStats.learnedChars.length;
 
@@ -158,6 +176,7 @@ function evaluateLevel() {
   }
 
   const pron = followStats.total >= 10 ? `${followStats.accuracy}%` : "样本不足";
+  const typing = typingStats.totalGames >= 3 ? `${typingStats.averageAccuracy}%` : "样本不足";
   const gapText =
     profile.targetLevel === "HSK1"
       ? learned >= 50
@@ -179,11 +198,18 @@ function evaluateLevel() {
       : followStats.accuracy >= 75
       ? "发音表现较好，可增加词组和短句跟读训练。"
       : "建议放慢语速并跟随“朗读当前汉字”多次模仿。",
+    typingStats.totalGames < 3
+      ? "建议每周至少完成 3 局“打字闯关”，同步提升汉字与拼音输入速度。"
+      : typingStats.averageAccuracy >= 80
+      ? "打字命中率表现优秀，可提高到 90 秒以上挑战并加入词组题。"
+      : "打字练习建议从 60 秒短局开始，优先巩固错题并加入字帖反复书写。",
   ];
 
   refs.evaluationBox.innerHTML = `
     <h3>当前学习评价：${escapeHtml(stage)}</h3>
-    <p>跟读评价：${escapeHtml(pron)}；累计打卡天数：${calendarStats.activeDays} 天。</p>
+    <p>跟读评价：${escapeHtml(pron)}；打字命中率：${escapeHtml(typing)}；累计打卡天数：${
+    calendarStats.activeDays
+  } 天。</p>
     <p>目标匹配：${escapeHtml(gapText)}</p>
     <h3>个性化建议</h3>
     <ul>${suggestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
@@ -239,6 +265,12 @@ function activityMessage(log) {
   }
   if (log.type === "profile_update") {
     return "更新了学习档案";
+  }
+  if (log.type === "typing_game_finish") {
+    const modeText = log.payload?.mode === "pinyin" ? "拼音打字" : "汉字打字";
+    return `完成打字闯关（${modeText}）：得分 ${log.payload?.score ?? 0}，命中率 ${
+      log.payload?.accuracy ?? 0
+    }%`;
   }
   return "完成了一次学习操作";
 }
