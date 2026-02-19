@@ -319,6 +319,9 @@ function activityMessage(log) {
   if (log.type === "keyboard_daily_task_done") {
     return `完成每日键位任务：目标命中 ${log.payload?.targetHits ?? 0}，目标速度 ${log.payload?.targetSpeed ?? 0} 键/分`;
   }
+  if (log.type === "dictionary_lookup") {
+    return `在新华字典查询了汉字：${log.payload?.char || ""}`;
+  }
   return "完成了一次学习操作";
 }
 

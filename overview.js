@@ -183,6 +183,7 @@ function detailHtml(item) {
           item.ages?.[0] || ""
         )}&level=${encodeURIComponent(item.levels?.[0] || "")}&char=${encodeURIComponent(item.char)}">去练习</a>
         <a class="action-link" href="./calendar.html?chars=${encodeURIComponent(item.char)}">入日历</a>
+        <a class="action-link" href="./xinhua.html?char=${encodeURIComponent(item.char)}">查字典</a>
         <button id="detailAddCartBtn" type="button" class="action-link-btn">加入字帖</button>
       </div>
     </div>
@@ -245,6 +246,7 @@ function renderTable() {
           item.ages?.[0] || ""
         )}&level=${encodeURIComponent(item.levels?.[0] || "")}&char=${encodeURIComponent(item.char)}">练习</a>
         <a class="action-link" href="./calendar.html?chars=${encodeURIComponent(item.char)}">入日历</a>
+        <a class="action-link" href="./xinhua.html?char=${encodeURIComponent(item.char)}">字典</a>
         <a class="action-link add-cart-link" href="#">入字帖</a>
       </td>
     `;
