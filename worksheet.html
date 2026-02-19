@@ -96,6 +96,62 @@
           <h2 id="charPickerTitle">3) 选择演示汉字</h2>
           <div id="charPicker" class="char-picker"></div>
         </section>
+
+        <section id="workbookBuilderSection" class="no-print">
+          <h2>4) 年龄分级字帖本（出版模式）</h2>
+          <div class="form-grid">
+            <label for="bookAgeGroup">年龄段</label>
+            <select id="bookAgeGroup"></select>
+
+            <label for="bookLevel">学习分级</label>
+            <select id="bookLevel"></select>
+
+            <label for="bookCharCount">本册目标汉字数</label>
+            <input id="bookCharCount" type="number" min="8" max="120" value="24" />
+
+            <label for="bookRepeatCount">每字练习格数</label>
+            <input id="bookRepeatCount" type="number" min="4" max="24" value="8" />
+
+            <label for="bookMasteryThreshold">掌握阈值（0-100）</label>
+            <input id="bookMasteryThreshold" type="number" min="50" max="100" value="80" />
+
+            <label for="bookPrioritizeWeak">优先收录未达标字</label>
+            <input id="bookPrioritizeWeak" type="checkbox" checked />
+          </div>
+          <div class="actions">
+            <button id="generateBookBtn" type="button">生成一本字帖本</button>
+            <button id="printBookBtn" type="button" class="ghost">整本打印</button>
+          </div>
+          <p id="bookMeta" class="hint">将根据年龄段与分级自动生成可一次打印的整本字帖。</p>
+          <div id="bookFocusChars" class="char-picker"></div>
+        </section>
+
+        <section id="workbookScanSection" class="no-print">
+          <h2>5) 扫描复盘与循环再生成</h2>
+          <div class="form-grid">
+            <label for="scanBookSelect">选择字帖本</label>
+            <select id="scanBookSelect"></select>
+
+            <label for="scanThreshold">达标阈值</label>
+            <input id="scanThreshold" type="number" min="50" max="100" value="80" />
+          </div>
+          <p class="hint">
+            可粘贴扫描/OCR结果：每行一个“汉字 + 分数”，如：<code>人 86</code>、<code>口:74</code>。
+          </p>
+          <textarea
+            id="scanResultInput"
+            rows="5"
+            placeholder="人 86&#10;口 74&#10;山 90&#10;..."
+          ></textarea>
+          <div class="actions">
+            <label for="scanFileInput" class="file-btn">导入扫描文本</label>
+            <input id="scanFileInput" type="file" accept=".txt,.csv,.md,text/plain" class="hidden-file" />
+            <button id="applyScanBtn" type="button">应用扫描评估</button>
+            <button id="generateNextBookBtn" type="button" class="ghost">生成下一本（循环）</button>
+          </div>
+          <p id="scanMeta" class="hint">扫描后将自动标记未达标字，并纳入下一本强化字帖。</p>
+          <div id="scanWeakChars" class="char-picker"></div>
+        </section>
       </aside>
 
       <section class="content">
@@ -137,6 +193,7 @@
     </main>
 
     <script src="./learning-store.js"></script>
+    <script src="./hanzi-data.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
     <script src="./app.js" defer></script>
   </body>

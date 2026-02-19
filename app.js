@@ -23,6 +23,26 @@ const refs = {
   charPickerSection: document.getElementById("charPickerSection"),
   charPickerTitle: document.getElementById("charPickerTitle"),
   charPicker: document.getElementById("charPicker"),
+  workbookBuilderSection: document.getElementById("workbookBuilderSection"),
+  bookAgeGroup: document.getElementById("bookAgeGroup"),
+  bookLevel: document.getElementById("bookLevel"),
+  bookCharCount: document.getElementById("bookCharCount"),
+  bookRepeatCount: document.getElementById("bookRepeatCount"),
+  bookMasteryThreshold: document.getElementById("bookMasteryThreshold"),
+  bookPrioritizeWeak: document.getElementById("bookPrioritizeWeak"),
+  generateBookBtn: document.getElementById("generateBookBtn"),
+  printBookBtn: document.getElementById("printBookBtn"),
+  bookMeta: document.getElementById("bookMeta"),
+  bookFocusChars: document.getElementById("bookFocusChars"),
+  workbookScanSection: document.getElementById("workbookScanSection"),
+  scanBookSelect: document.getElementById("scanBookSelect"),
+  scanThreshold: document.getElementById("scanThreshold"),
+  scanResultInput: document.getElementById("scanResultInput"),
+  scanFileInput: document.getElementById("scanFileInput"),
+  applyScanBtn: document.getElementById("applyScanBtn"),
+  generateNextBookBtn: document.getElementById("generateNextBookBtn"),
+  scanMeta: document.getElementById("scanMeta"),
+  scanWeakChars: document.getElementById("scanWeakChars"),
   worksheetPages: document.getElementById("worksheetPages"),
   currentChar: document.getElementById("currentChar"),
   writerTarget: document.getElementById("writerTarget"),
@@ -47,6 +67,9 @@ const state = {
   loopMode: false,
   strokeReqId: 0,
   followListening: false,
+  activeWorkbookId: "",
+  workbookHistory: [],
+  workbookMasteryMap: {},
 };
 
 let hanRegex;
@@ -89,6 +112,26 @@ const MATH_CHAR_MAP = {
 };
 
 const MATH_ALLOWED_SET = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "=", "(", ")", ".", "%"]);
+const WORKBOOK_MAX_HISTORY = 120;
+
+const DEFAULT_AGE_GROUPS =
+  window.LEARNING_DIMENSIONS?.ageGroups ||
+  [
+    { value: "6-8", label: "6-8 岁（启蒙）" },
+    { value: "9-12", label: "9-12 岁（基础）" },
+    { value: "13-16", label: "13-16 岁（提升）" },
+    { value: "16+", label: "16 岁以上（进阶）" },
+  ];
+
+const DEFAULT_LEVELS =
+  window.LEARNING_DIMENSIONS?.chineseLevels ||
+  [
+    { value: "启蒙", label: "启蒙" },
+    { value: "HSK1", label: "HSK 1" },
+    { value: "HSK2", label: "HSK 2" },
+    { value: "HSK3", label: "HSK 3" },
+    { value: "HSK4+", label: "HSK 4+" },
+  ];
 
 function refreshSpeechVoice() {
   if (!("speechSynthesis" in window)) {
@@ -199,6 +242,12 @@ function refreshPracticeModeUI() {
   }
   if (refs.strokePanel) {
     refs.strokePanel.classList.toggle("hidden", !hanziMode);
+  }
+  if (refs.workbookBuilderSection) {
+    refs.workbookBuilderSection.classList.toggle("hidden", !hanziMode);
+  }
+  if (refs.workbookScanSection) {
+    refs.workbookScanSection.classList.toggle("hidden", !hanziMode);
   }
 }
 
@@ -390,7 +439,624 @@ function getWorksheetConfig() {
   };
 }
 
-function buildCells(chars, config) {
+function clampNumber(value, min, max, fallback) {
+  const input = Number(value);
+  if (!Number.isFinite(input)) {
+    return fallback;
+  }
+  return Math.min(Math.max(input, min), max);
+}
+
+function createLocalId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getOptionLabel(list, value) {
+  const row = (list || []).find((item) => item.value === value);
+  return row?.label || value || "-";
+}
+
+function uniqueChars(chars) {
+  return [...new Set((chars || []).filter((char) => hanRegex.test(char)))];
+}
+
+function getHanziLibraryRows() {
+  const rows = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
+  return rows.filter((item) => item && typeof item === "object" && hanRegex.test(item.char || ""));
+}
+
+function getLaneChars(ageGroup, level) {
+  const rows = getHanziLibraryRows();
+  return uniqueChars(
+    rows
+      .filter((item) => {
+        const ages = Array.isArray(item.ages) ? item.ages : [];
+        const levels = Array.isArray(item.levels) ? item.levels : [];
+        return ages.includes(ageGroup) && levels.includes(level);
+      })
+      .map((item) => item.char)
+  );
+}
+
+function getDefaultBookCharCount(ageGroup, level) {
+  const levelBase = {
+    启蒙: 14,
+    HSK1: 18,
+    HSK2: 22,
+    HSK3: 26,
+    "HSK4+": 30,
+  };
+  const ageAdjust = {
+    "6-8": -2,
+    "9-12": 0,
+    "13-16": 2,
+    "16+": 4,
+  };
+  const base = (levelBase[level] || 18) + (ageAdjust[ageGroup] || 0);
+  return clampNumber(base, 8, 120, 24);
+}
+
+function loadWorkbookHistory() {
+  if (store && typeof store.getWorkbookHistory === "function") {
+    state.workbookHistory = store.getWorkbookHistory();
+  } else {
+    state.workbookHistory = [];
+  }
+}
+
+function loadWorkbookMasteryMap() {
+  if (store && typeof store.getWorkbookMasteryMap === "function") {
+    state.workbookMasteryMap = store.getWorkbookMasteryMap();
+  } else {
+    state.workbookMasteryMap = {};
+  }
+}
+
+function saveWorkbookMasteryMap(map) {
+  state.workbookMasteryMap = map && typeof map === "object" ? map : {};
+  if (store && typeof store.saveWorkbookMasteryMap === "function") {
+    store.saveWorkbookMasteryMap(state.workbookMasteryMap);
+  }
+}
+
+function getWorkbookRecordById(bookId) {
+  const target = String(bookId || "");
+  if (!target) {
+    return null;
+  }
+  if (store && typeof store.getWorkbookRecordById === "function") {
+    return store.getWorkbookRecordById(target);
+  }
+  return state.workbookHistory.find((item) => String(item.id || "") === target) || null;
+}
+
+function appendWorkbookRecord(record) {
+  if (store && typeof store.appendWorkbookRecord === "function") {
+    store.appendWorkbookRecord(record);
+  } else {
+    const list = [...state.workbookHistory, record].slice(-WORKBOOK_MAX_HISTORY);
+    state.workbookHistory = list;
+  }
+  loadWorkbookHistory();
+}
+
+function updateWorkbookRecord(bookId, patch) {
+  if (store && typeof store.updateWorkbookRecord === "function") {
+    const row = store.updateWorkbookRecord(bookId, patch);
+    loadWorkbookHistory();
+    return row;
+  }
+  const idx = state.workbookHistory.findIndex((item) => String(item.id || "") === String(bookId || ""));
+  if (idx < 0) {
+    return null;
+  }
+  state.workbookHistory[idx] = { ...state.workbookHistory[idx], ...(patch || {}), id: state.workbookHistory[idx].id };
+  return state.workbookHistory[idx];
+}
+
+function renderCharTags(target, chars) {
+  if (!target) {
+    return;
+  }
+  target.innerHTML = "";
+  const list = uniqueChars(chars);
+  if (!list.length) {
+    target.innerHTML = `<span class="hint">暂无标记字符。</span>`;
+    return;
+  }
+  list.forEach((char) => {
+    const chip = document.createElement("span");
+    chip.className = "char-pill";
+    chip.textContent = char;
+    target.appendChild(chip);
+  });
+}
+
+function getBookFormValues() {
+  const ageGroup = refs.bookAgeGroup?.value || DEFAULT_AGE_GROUPS[0]?.value || "9-12";
+  const level = refs.bookLevel?.value || DEFAULT_LEVELS[1]?.value || "HSK1";
+  const targetCount = clampNumber(refs.bookCharCount?.value, 8, 120, getDefaultBookCharCount(ageGroup, level));
+  const repeatCount = clampNumber(refs.bookRepeatCount?.value, 4, 24, 8);
+  const threshold = clampNumber(refs.bookMasteryThreshold?.value, 50, 100, 80);
+  const prioritizeWeak = Boolean(refs.bookPrioritizeWeak?.checked);
+  return { ageGroup, level, targetCount, repeatCount, threshold, prioritizeWeak };
+}
+
+function normalizeMasteryRow(row) {
+  if (!row || typeof row !== "object") {
+    return { score: 0, attempts: 0, lastUpdatedAt: 0 };
+  }
+  return {
+    score: clampNumber(row.score, 0, 100, 0),
+    attempts: Math.max(0, toInt(row.attempts, 0)),
+    lastUpdatedAt: Number.isFinite(row.lastUpdatedAt) ? row.lastUpdatedAt : 0,
+    weakCount: Math.max(0, toInt(row.weakCount, 0)),
+    passCount: Math.max(0, toInt(row.passCount, 0)),
+    lastBookId: row.lastBookId || "",
+  };
+}
+
+function buildWorkbookCharPlan(input) {
+  const laneChars = getLaneChars(input.ageGroup, input.level);
+  const mastery = state.workbookMasteryMap || {};
+  const threshold = clampNumber(input.threshold, 50, 100, 80);
+  const weakSeed = new Set(uniqueChars(input.forceWeakChars || []));
+  const targetCount = clampNumber(input.targetCount, 8, 120, 24);
+  const prioritizeWeak = Boolean(input.prioritizeWeak);
+
+  const weakPool = laneChars
+    .filter((char) => {
+      const row = normalizeMasteryRow(mastery[char]);
+      return weakSeed.has(char) || (row.attempts > 0 && row.score < threshold);
+    })
+    .sort((a, b) => {
+      const rowA = normalizeMasteryRow(mastery[a]);
+      const rowB = normalizeMasteryRow(mastery[b]);
+      return rowA.score - rowB.score || rowA.lastUpdatedAt - rowB.lastUpdatedAt;
+    });
+
+  const freshPool = laneChars.filter((char) => normalizeMasteryRow(mastery[char]).attempts === 0);
+  const trainedPool = laneChars.filter((char) => {
+    const row = normalizeMasteryRow(mastery[char]);
+    return row.attempts > 0 && row.score >= threshold;
+  });
+
+  const selected = [];
+  const pushUnique = (char) => {
+    if (!selected.includes(char)) {
+      selected.push(char);
+    }
+  };
+
+  if (prioritizeWeak) {
+    weakPool.forEach(pushUnique);
+  }
+  freshPool.forEach(pushUnique);
+  if (!prioritizeWeak) {
+    weakPool.forEach(pushUnique);
+  }
+  trainedPool.forEach(pushUnique);
+  laneChars.forEach(pushUnique);
+
+  const chars = selected.slice(0, targetCount);
+  const focusChars = chars.filter((char) => weakPool.includes(char));
+  const newChars = chars.filter((char) => !focusChars.includes(char));
+  return {
+    chars,
+    focusChars,
+    newChars,
+    laneTotal: laneChars.length,
+    weakPoolSize: weakPool.length,
+  };
+}
+
+function renderScanBookOptions() {
+  if (!refs.scanBookSelect) {
+    return;
+  }
+  const rows = [...state.workbookHistory].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  refs.scanBookSelect.innerHTML = "";
+  if (!rows.length) {
+    refs.scanBookSelect.innerHTML = `<option value="">暂无字帖本记录</option>`;
+    return;
+  }
+  rows.forEach((book) => {
+    const option = document.createElement("option");
+    option.value = book.id;
+    option.textContent = `${book.title || "字帖本"}｜${getOptionLabel(DEFAULT_AGE_GROUPS, book.ageGroup)}｜${
+      book.level
+    }｜${formatTime(book.createdAt || 0)}`;
+    refs.scanBookSelect.appendChild(option);
+  });
+  if (state.activeWorkbookId && rows.some((item) => item.id === state.activeWorkbookId)) {
+    refs.scanBookSelect.value = state.activeWorkbookId;
+  } else {
+    refs.scanBookSelect.value = rows[0].id;
+  }
+}
+
+function setBookMeta(text) {
+  if (refs.bookMeta) {
+    refs.bookMeta.textContent = text;
+  }
+}
+
+function formatTime(ts) {
+  if (!Number.isFinite(ts) || ts <= 0) {
+    return "-";
+  }
+  const date = new Date(ts);
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  const h = `${date.getHours()}`.padStart(2, "0");
+  const min = `${date.getMinutes()}`.padStart(2, "0");
+  return `${y}-${m}-${d} ${h}:${min}`;
+}
+
+function setScanMeta(text) {
+  if (refs.scanMeta) {
+    refs.scanMeta.textContent = text;
+  }
+}
+
+function parseScanResultText(text) {
+  const rows = [];
+  const map = {};
+  const qualityScoreMap = { 优: 92, 良: 84, 中: 74, 差: 60 };
+  String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const charMatch = line.match(/[\u3400-\u9fff\uf900-\ufaff]/);
+      if (!charMatch) {
+        return;
+      }
+      const char = charMatch[0];
+      let score = NaN;
+      const numberMatch = line.match(/(-?\d{1,3}(?:\.\d+)?)/);
+      if (numberMatch) {
+        score = clampNumber(Number(numberMatch[1]), 0, 100, 0);
+      } else {
+        const levelHit = Object.keys(qualityScoreMap).find((label) => line.includes(label));
+        if (levelHit) {
+          score = qualityScoreMap[levelHit];
+        }
+      }
+      rows.push({ char, score });
+      if (!Number.isFinite(score)) {
+        return;
+      }
+      if (!Number.isFinite(map[char]) || score > map[char]) {
+        map[char] = score;
+      }
+    });
+  return { rows, map };
+}
+
+function initWorkbookSelectors() {
+  if (!refs.bookAgeGroup || !refs.bookLevel) {
+    return;
+  }
+  refs.bookAgeGroup.innerHTML = DEFAULT_AGE_GROUPS.map(
+    (item) => `<option value="${item.value}">${item.label}</option>`
+  ).join("");
+  refs.bookLevel.innerHTML = DEFAULT_LEVELS.map((item) => `<option value="${item.value}">${item.label}</option>`).join("");
+
+  const profileLevel = store && typeof store.getUserProfile === "function" ? store.getUserProfile()?.targetLevel : "";
+  const defaultLevel = DEFAULT_LEVELS.some((item) => item.value === profileLevel) ? profileLevel : "HSK1";
+  refs.bookLevel.value = defaultLevel;
+  refs.bookAgeGroup.value = "9-12";
+  refs.bookCharCount.value = String(getDefaultBookCharCount(refs.bookAgeGroup.value, refs.bookLevel.value));
+}
+
+function createWorkbookRecord(input) {
+  const plan = buildWorkbookCharPlan({
+    ageGroup: input.ageGroup,
+    level: input.level,
+    targetCount: input.targetCount,
+    threshold: input.threshold,
+    prioritizeWeak: input.prioritizeWeak,
+    forceWeakChars: input.forceWeakChars || [],
+  });
+  if (!plan.chars.length) {
+    return null;
+  }
+  const ageLabel = getOptionLabel(DEFAULT_AGE_GROUPS, input.ageGroup);
+  const now = Date.now();
+  return {
+    id: createLocalId("wbk"),
+    createdAt: now,
+    updatedAt: now,
+    title: `${ageLabel} · ${input.level} 分级字帖本`,
+    ageGroup: input.ageGroup,
+    level: input.level,
+    threshold: input.threshold,
+    targetCount: input.targetCount,
+    repeatCount: input.repeatCount,
+    prioritizeWeak: input.prioritizeWeak,
+    chars: plan.chars,
+    focusChars: plan.focusChars,
+    newChars: plan.newChars,
+    laneTotal: plan.laneTotal,
+    weakPoolSize: plan.weakPoolSize,
+    source: input.source || "grading_auto",
+    sourceBookId: input.sourceBookId || "",
+    cycle: Number.isFinite(input.cycle) ? input.cycle : 1,
+    scanSummary: null,
+    configSnapshot: {
+      gridType: refs.gridType.value,
+      columns: clampNumber(refs.columns.value, 4, 20, 10),
+      cellSize: clampNumber(refs.cellSize.value, 40, 90, 60),
+      traceMode: "trace",
+      showGuide: true,
+      repeatCount: input.repeatCount,
+    },
+  };
+}
+
+function createWorkbookCoverPage(book) {
+  const cover = document.createElement("section");
+  cover.className = "worksheet-page workbook-cover";
+  const ageLabel = getOptionLabel(DEFAULT_AGE_GROUPS, book.ageGroup);
+  const focusText = book.focusChars?.length ? `${book.focusChars.join("")}` : "无";
+  cover.innerHTML = `
+    <div class="cover-title">${book.title}</div>
+    <div class="cover-subtitle">第 ${book.cycle} 册 · 生成时间：${formatTime(book.createdAt || 0)}</div>
+    <div class="cover-meta-grid">
+      <div class="meta-card">年龄段：${ageLabel}</div>
+      <div class="meta-card">分级：${book.level}</div>
+      <div class="meta-card">本册汉字：${book.chars.length} / 目标 ${book.targetCount}</div>
+      <div class="meta-card">每字格数：${book.repeatCount}</div>
+      <div class="meta-card">掌握阈值：${book.threshold}</div>
+      <div class="meta-card">未达标优先：${book.prioritizeWeak ? "是" : "否"}</div>
+      <div class="meta-card">强化标记字：${focusText}</div>
+      <div class="meta-card">来源：${book.sourceBookId ? `由 ${book.sourceBookId} 循环生成` : "首次生成"}</div>
+    </div>
+    <div class="cover-note">
+      使用说明：先整本打印并描红，再将扫描/OCR结果粘贴到“扫描复盘”区。系统会自动标记未达标汉字并循环生成下一册强化字帖本。
+    </div>
+  `;
+  return cover;
+}
+
+function renderWorkbookPreview(book) {
+  if (!book) {
+    return;
+  }
+  state.activeWorkbookId = book.id;
+  refs.textInput.value = Array.isArray(book.chars) ? book.chars.join("") : "";
+  state.chars = Array.isArray(book.chars) ? [...book.chars] : [];
+
+  const weakSet = new Set(uniqueChars(book.focusChars || []));
+  const configOverride = {
+    ...getWorksheetConfig(),
+    ...(book.configSnapshot || {}),
+    repeatCount: clampNumber(book.repeatCount, 4, 24, 8),
+    traceMode: "trace",
+    showGuide: true,
+  };
+  renderWorksheet(state.chars, {
+    configOverride,
+    weakSet,
+    headerMainText: `${book.title}｜第 ${book.cycle} 册｜本册 ${state.chars.length} 字`,
+  });
+  refs.worksheetPages.prepend(createWorkbookCoverPage(book));
+
+  renderCharPicker(state.chars);
+  if (state.chars.length) {
+    selectChar(state.chars[0]);
+  }
+  renderCharTags(refs.bookFocusChars, book.focusChars || []);
+  renderCharTags(refs.scanWeakChars, book.scanSummary?.weakChars || []);
+  renderScanBookOptions();
+  if (refs.scanBookSelect) {
+    refs.scanBookSelect.value = book.id;
+  }
+
+  const summary = book.scanSummary;
+  if (summary) {
+    setBookMeta(
+      `当前第 ${book.cycle} 册：本册 ${book.chars.length} 字，扫描达标 ${summary.masteredCount}/${summary.totalChars}，未达标 ${summary.weakCount}。`
+    );
+  } else {
+    setBookMeta(
+      `当前第 ${book.cycle} 册：本册 ${book.chars.length} 字，其中未达标优先 ${book.focusChars.length} 字。`
+    );
+  }
+}
+
+function refreshWorkbookHistoryState() {
+  loadWorkbookHistory();
+  renderScanBookOptions();
+}
+
+function generateWorkbook(opts) {
+  const form = getBookFormValues();
+  const sourceBook = opts?.sourceBook || null;
+  const record = createWorkbookRecord({
+    ageGroup: sourceBook?.ageGroup || form.ageGroup,
+    level: sourceBook?.level || form.level,
+    targetCount: sourceBook?.targetCount || form.targetCount,
+    repeatCount: sourceBook?.repeatCount || form.repeatCount,
+    threshold: clampNumber(opts?.threshold, 50, 100, sourceBook?.threshold || form.threshold),
+    prioritizeWeak: sourceBook ? true : form.prioritizeWeak,
+    forceWeakChars: opts?.forceWeakChars || [],
+    source: opts?.source || "grading_auto",
+    sourceBookId: sourceBook?.id || "",
+    cycle: sourceBook ? (sourceBook.cycle || 1) + 1 : 1,
+  });
+  if (!record) {
+    setBookMeta("当前年龄段与分级下暂无可生成字帖本的汉字，请调整条件。");
+    return null;
+  }
+  appendWorkbookRecord(record);
+  refreshWorkbookHistoryState();
+  renderWorkbookPreview(record);
+  return record;
+}
+
+function evaluateWorkbookScan(book, scanMap, threshold) {
+  const mastery = { ...(state.workbookMasteryMap || {}) };
+  const chars = uniqueChars(book.chars || []);
+  const weakChars = [];
+  const masteredChars = [];
+  const details = [];
+  let totalScore = 0;
+  let detectedCount = 0;
+  chars.forEach((char) => {
+    const prev = normalizeMasteryRow(mastery[char]);
+    const hasInput = Number.isFinite(scanMap[char]);
+    const rawScore = hasInput
+      ? clampNumber(scanMap[char], 0, 100, 0)
+      : prev.attempts > 0
+      ? Math.max(0, Math.round(prev.score * 0.75))
+      : 0;
+    const nextScore = prev.attempts > 0 ? Math.round(prev.score * 0.35 + rawScore * 0.65) : Math.round(rawScore);
+    const weak = !hasInput || nextScore < threshold;
+    mastery[char] = {
+      ...prev,
+      score: nextScore,
+      attempts: prev.attempts + 1,
+      lastUpdatedAt: Date.now(),
+      weakCount: prev.weakCount + (weak ? 1 : 0),
+      passCount: prev.passCount + (weak ? 0 : 1),
+      lastBookId: book.id,
+    };
+    if (weak) {
+      weakChars.push(char);
+    } else {
+      masteredChars.push(char);
+    }
+    if (hasInput) {
+      detectedCount += 1;
+    }
+    totalScore += nextScore;
+    details.push({
+      char,
+      detected: hasInput,
+      score: nextScore,
+      weak,
+    });
+  });
+  const averageScore = chars.length ? Math.round(totalScore / chars.length) : 0;
+  const coverage = chars.length ? Math.round((detectedCount / chars.length) * 100) : 0;
+  return {
+    mastery,
+    summary: {
+      totalChars: chars.length,
+      masteredCount: masteredChars.length,
+      weakCount: weakChars.length,
+      weakChars,
+      masteredChars,
+      averageScore,
+      coverage,
+      threshold,
+      updatedAt: Date.now(),
+    },
+    details,
+  };
+}
+
+function applyScanToSelectedBook() {
+  const bookId = refs.scanBookSelect?.value || state.activeWorkbookId;
+  const book = getWorkbookRecordById(bookId);
+  if (!book) {
+    setScanMeta("请先生成并选择一本字帖本。");
+    return null;
+  }
+  const threshold = clampNumber(refs.scanThreshold?.value, 50, 100, book.threshold || 80);
+  const parsed = parseScanResultText(refs.scanResultInput?.value || "");
+  if (!parsed.rows.length) {
+    setScanMeta("未识别到有效扫描数据，请按“汉字+分数”格式粘贴结果。");
+    return null;
+  }
+  const result = evaluateWorkbookScan(book, parsed.map, threshold);
+  saveWorkbookMasteryMap(result.mastery);
+  const nextBook = updateWorkbookRecord(book.id, {
+    threshold,
+    scanSummary: {
+      ...result.summary,
+      parsedRows: parsed.rows.length,
+    },
+    scanDetails: result.details,
+    focusChars: result.summary.weakChars,
+    updatedAt: Date.now(),
+  });
+  if (store && typeof store.logActivity === "function") {
+    store.logActivity("worksheet_workbook_scan", {
+      bookId: book.id,
+      weakCount: result.summary.weakCount,
+      masteredCount: result.summary.masteredCount,
+      threshold,
+      source: "workbook_scan",
+    });
+  }
+  refreshWorkbookHistoryState();
+  renderCharTags(refs.scanWeakChars, result.summary.weakChars);
+  renderCharTags(refs.bookFocusChars, result.summary.weakChars);
+  setScanMeta(
+    `扫描评估完成：达标 ${result.summary.masteredCount}/${result.summary.totalChars}，未达标 ${result.summary.weakCount}，识别覆盖 ${result.summary.coverage}%。`
+  );
+  if (nextBook) {
+    renderWorkbookPreview(nextBook);
+  }
+  return nextBook || book;
+}
+
+function generateNextWorkbookFromSelected() {
+  const bookId = refs.scanBookSelect?.value || state.activeWorkbookId;
+  const book = getWorkbookRecordById(bookId);
+  if (!book) {
+    setScanMeta("请先选择一本字帖本并完成扫描评估。");
+    return;
+  }
+  const weakChars = uniqueChars(book.scanSummary?.weakChars || book.focusChars || []);
+  const next = generateWorkbook({
+    sourceBook: book,
+    threshold: refs.scanThreshold?.value,
+    forceWeakChars: weakChars,
+    source: "workbook_loop",
+  });
+  if (!next) {
+    setScanMeta("下一本生成失败，请检查分级条件。");
+    return;
+  }
+  if (store && typeof store.logActivity === "function") {
+    store.logActivity("worksheet_workbook_loop_generate", {
+      fromBookId: book.id,
+      toBookId: next.id,
+      weakCarry: weakChars.length,
+      source: "workbook_loop",
+    });
+  }
+  setScanMeta(`已生成下一册：第 ${next.cycle} 册，携带未达标字 ${weakChars.length} 个。`);
+}
+
+function tryPrintWorksheet(source) {
+  if (!store || typeof store.consumeFeatureUsage !== "function") {
+    window.print();
+    return;
+  }
+  const result = store.consumeFeatureUsage("worksheet_print", 1, { source: source || "worksheet_print" });
+  if (!result.ok) {
+    const limitText = result.limit === null ? "不限" : `${result.limit} 次/天`;
+    const shouldUpgrade = window.confirm(
+      `当前套餐“${result.planName}”的字帖打印配额已用完（${limitText}）。\n是否前往订阅中心升级套餐？`
+    );
+    if (shouldUpgrade) {
+      window.location.href = "./pricing.html";
+    }
+    refreshBillingTip();
+    return;
+  }
+  refreshBillingTip();
+  window.print();
+}
+
+function buildCells(chars, config, opts) {
+  const weakSet = opts?.weakSet instanceof Set ? opts.weakSet : new Set();
   const cells = [];
   chars.forEach((char) => {
     for (let i = 0; i < config.repeatCount; i += 1) {
@@ -400,18 +1066,32 @@ function buildCells(chars, config) {
       } else if (i > 0 && config.traceMode === "trace" && config.showGuide) {
         mode = "trace";
       }
-      cells.push({ char, mode });
+      cells.push({ char, mode, weak: weakSet.has(char) });
     }
   });
   return cells;
 }
 
-function renderWorksheet(chars) {
-  refs.worksheetPages.innerHTML = "";
-  const config = getWorksheetConfig();
-  const hanziMode = isHanziMode();
+function summarizeChars(chars) {
+  if (!Array.isArray(chars) || !chars.length) {
+    return "-";
+  }
+  const raw = chars.join("");
+  if (raw.length <= 24) {
+    return raw;
+  }
+  return `${raw.slice(0, 24)}…（共 ${chars.length} 字）`;
+}
 
-  const cells = buildCells(chars, config);
+function renderWorksheet(chars, options) {
+  refs.worksheetPages.innerHTML = "";
+  const config = options?.configOverride || getWorksheetConfig();
+  const hanziMode = isHanziMode();
+  const headerMainText =
+    options?.headerMainText || `${hanziMode ? "练字内容" : "练习内容"}：${summarizeChars(chars)}`;
+  const weakSet = options?.weakSet instanceof Set ? options.weakSet : new Set();
+
+  const cells = buildCells(chars, config, { weakSet });
   if (cells.length === 0) {
     refs.worksheetPages.innerHTML = `<div class="hint">${
       hanziMode ? "请输入至少一个汉字以生成字帖。" : "请输入至少一个数字或数学符号以生成字帖。"
@@ -430,7 +1110,7 @@ function renderWorksheet(chars) {
     const header = document.createElement("div");
     header.className = "worksheet-header";
     header.innerHTML = `
-      <span>${hanziMode ? "练字内容" : "练习内容"}：${chars.join("")}</span>
+      <span>${headerMainText}</span>
       <span>第 ${index + 1} / ${pages.length} 页</span>
     `;
 
@@ -441,10 +1121,13 @@ function renderWorksheet(chars) {
 
     pageCells.forEach((item) => {
       const cell = document.createElement("div");
-      cell.className = `grid-cell ${config.gridType}`;
+      cell.className = `grid-cell ${config.gridType}${item.weak ? " weak" : ""}`;
 
       const charNode = document.createElement("span");
       charNode.className = `cell-char ${item.mode} ${hanziMode ? "hanzi" : "math"}`;
+      if (item.weak && (item.mode === "model" || item.mode === "trace")) {
+        charNode.classList.add("weak-target");
+      }
       charNode.textContent = item.char;
 
       cell.appendChild(charNode);
@@ -600,7 +1283,13 @@ function selectChar(char) {
   resetFollowPanel(char);
 }
 
-function regenerate() {
+function regenerate(options) {
+  if (!options?.preserveWorkbook) {
+    state.activeWorkbookId = "";
+    renderCharTags(refs.bookFocusChars, []);
+    renderCharTags(refs.scanWeakChars, []);
+    setBookMeta("当前为自定义字帖模式。你也可以在下方生成年龄分级字帖本。");
+  }
   const chars = extractInputChars(refs.textInput.value.trim());
   state.chars = chars;
 
@@ -663,26 +1352,7 @@ function bindEvents() {
   });
 
   refs.generateBtn.addEventListener("click", regenerate);
-  refs.printBtn.addEventListener("click", () => {
-    if (!store || typeof store.consumeFeatureUsage !== "function") {
-      window.print();
-      return;
-    }
-    const result = store.consumeFeatureUsage("worksheet_print", 1, { source: "worksheet_print" });
-    if (!result.ok) {
-      const limitText = result.limit === null ? "不限" : `${result.limit} 次/天`;
-      const shouldUpgrade = window.confirm(
-        `当前套餐“${result.planName}”的字帖打印配额已用完（${limitText}）。\n是否前往订阅中心升级套餐？`
-      );
-      if (shouldUpgrade) {
-        window.location.href = "./pricing.html";
-      }
-      refreshBillingTip();
-      return;
-    }
-    refreshBillingTip();
-    window.print();
-  });
+  refs.printBtn.addEventListener("click", () => tryPrintWorksheet("worksheet_print_custom"));
   refs.clearBtn.addEventListener("click", () => {
     refs.textInput.value = "";
     regenerate();
@@ -773,6 +1443,86 @@ function bindEvents() {
     }
   });
 
+  refs.bookAgeGroup?.addEventListener("change", () => {
+    const ageGroup = refs.bookAgeGroup.value;
+    const level = refs.bookLevel?.value || "HSK1";
+    refs.bookCharCount.value = String(getDefaultBookCharCount(ageGroup, level));
+  });
+
+  refs.bookLevel?.addEventListener("change", () => {
+    const ageGroup = refs.bookAgeGroup?.value || "9-12";
+    const level = refs.bookLevel.value;
+    refs.bookCharCount.value = String(getDefaultBookCharCount(ageGroup, level));
+  });
+
+  refs.generateBookBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
+    const book = generateWorkbook({ source: "grading_auto" });
+    if (book) {
+      setScanMeta(`已生成 ${book.title}（第 ${book.cycle} 册），可直接整本打印。`);
+    }
+  });
+
+  refs.printBookBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
+    if (!state.activeWorkbookId) {
+      const book = generateWorkbook({ source: "grading_auto" });
+      if (!book) {
+        return;
+      }
+    }
+    tryPrintWorksheet("worksheet_print_book");
+  });
+
+  refs.scanBookSelect?.addEventListener("change", () => {
+    const book = getWorkbookRecordById(refs.scanBookSelect.value);
+    if (!book) {
+      return;
+    }
+    if (refs.scanThreshold) {
+      refs.scanThreshold.value = String(clampNumber(book.threshold, 50, 100, 80));
+    }
+    renderWorkbookPreview(book);
+    setScanMeta(
+      book.scanSummary
+        ? `已加载：达标 ${book.scanSummary.masteredCount}/${book.scanSummary.totalChars}，未达标 ${book.scanSummary.weakCount}。`
+        : "已加载字帖本，请粘贴扫描结果后点击“应用扫描评估”。"
+    );
+  });
+
+  refs.scanFileInput?.addEventListener("change", async (event) => {
+    const file = event.target?.files?.[0];
+    if (!file) {
+      return;
+    }
+    try {
+      const text = await file.text();
+      refs.scanResultInput.value = text;
+      setScanMeta(`已导入扫描文本：${file.name}，请点击“应用扫描评估”。`);
+    } catch (error) {
+      setScanMeta("扫描文本导入失败，请重试。");
+    }
+    refs.scanFileInput.value = "";
+  });
+
+  refs.applyScanBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
+    applyScanToSelectedBook();
+  });
+
+  refs.generateNextBookBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
+    generateNextWorkbookFromSelected();
+  });
+
   [
     refs.gridType,
     refs.repeatCount,
@@ -783,6 +1533,21 @@ function bindEvents() {
   ].forEach((node) => {
     node.addEventListener("change", () => {
       if (state.chars.length) {
+        if (state.activeWorkbookId) {
+          const book = getWorkbookRecordById(state.activeWorkbookId);
+          if (book) {
+            const patched = updateWorkbookRecord(book.id, {
+              configSnapshot: {
+                ...(book.configSnapshot || {}),
+                gridType: refs.gridType.value,
+                columns: clampNumber(refs.columns.value, 4, 20, 10),
+                cellSize: clampNumber(refs.cellSize.value, 40, 90, 60),
+              },
+            });
+            renderWorkbookPreview(patched || book);
+            return;
+          }
+        }
         renderWorksheet(state.chars);
       }
     });
@@ -797,6 +1562,12 @@ function bootstrap() {
     window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoice);
   }
   setupFollowReading();
+  loadWorkbookHistory();
+  loadWorkbookMasteryMap();
+  initWorkbookSelectors();
+  refreshWorkbookHistoryState();
+  setBookMeta("当前为自定义字帖模式。你也可以在下方生成年龄分级字帖本。");
+  setScanMeta("扫描后会自动标记未达标字，并可一键生成下一册强化字帖本。");
   const params = new URLSearchParams(window.location.search);
   state.practiceMode = params.get("mode") === "math" ? "math" : "hanzi";
   if (refs.practiceModeSelect) {

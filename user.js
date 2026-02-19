@@ -498,6 +498,15 @@ function activityMessage(log) {
   if (log.type === "cloud_sync_download") {
     return `从云端下载学习进度（版本 ${log.payload?.version || 1}）`;
   }
+  if (log.type === "worksheet_workbook_generate") {
+    return `生成分级字帖本：${log.payload?.level || ""}（${log.payload?.chars || 0} 字）`;
+  }
+  if (log.type === "worksheet_workbook_scan") {
+    return `完成字帖本扫描评估：达标 ${log.payload?.masteredCount || 0}，未达标 ${log.payload?.weakCount || 0}`;
+  }
+  if (log.type === "worksheet_workbook_loop_generate") {
+    return `循环生成下一册字帖本：携带未达标字 ${log.payload?.weakCarry || 0} 个`;
+  }
   return "完成了一次学习操作";
 }
 

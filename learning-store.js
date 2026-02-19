@@ -7,6 +7,8 @@
   const KEYBOARD_DAILY_TASK_KEY = "keyboardDailyTaskV1";
   const BILLING_SUBSCRIPTION_KEY = "billingSubscriptionPlanV1";
   const BILLING_USAGE_KEY = "billingUsageMeterV1";
+  const WORKBOOK_HISTORY_KEY = "worksheetWorkbookHistoryV1";
+  const WORKBOOK_MASTERY_KEY = "worksheetWorkbookMasteryV1";
   const USER_PROFILE_KEY = "userProfileV1";
   const ACTIVITY_LOG_KEY = "learningActivityLogV1";
 
@@ -393,6 +395,79 @@
     return [];
   }
 
+  function getWorkbookHistory() {
+    const rows = safeRead(WORKBOOK_HISTORY_KEY, []);
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+    return rows.filter((item) => item && typeof item === "object");
+  }
+
+  function saveWorkbookHistory(rows) {
+    const list = Array.isArray(rows) ? rows.filter((item) => item && typeof item === "object") : [];
+    const compact = list.slice(-120);
+    safeWrite(WORKBOOK_HISTORY_KEY, compact);
+    return compact;
+  }
+
+  function appendWorkbookRecord(record) {
+    const row = record && typeof record === "object" ? record : null;
+    if (!row) {
+      return null;
+    }
+    const rows = getWorkbookHistory();
+    rows.push(row);
+    const compact = saveWorkbookHistory(rows);
+    logActivity("worksheet_workbook_generate", {
+      bookId: row.id || "",
+      ageGroup: row.ageGroup || "",
+      level: row.level || "",
+      chars: Array.isArray(row.chars) ? row.chars.length : 0,
+      source: row.source || "workbook",
+    });
+    return compact[compact.length - 1] || null;
+  }
+
+  function getWorkbookRecordById(bookId) {
+    const target = String(bookId || "");
+    if (!target) {
+      return null;
+    }
+    const rows = getWorkbookHistory();
+    return rows.find((item) => String(item.id || "") === target) || null;
+  }
+
+  function updateWorkbookRecord(bookId, patch) {
+    const target = String(bookId || "");
+    if (!target) {
+      return null;
+    }
+    const rows = getWorkbookHistory();
+    const index = rows.findIndex((item) => String(item.id || "") === target);
+    if (index < 0) {
+      return null;
+    }
+    const next = {
+      ...rows[index],
+      ...(patch && typeof patch === "object" ? patch : {}),
+      id: rows[index].id,
+    };
+    rows[index] = next;
+    saveWorkbookHistory(rows);
+    return next;
+  }
+
+  function getWorkbookMasteryMap() {
+    const map = safeRead(WORKBOOK_MASTERY_KEY, {});
+    return map && typeof map === "object" ? map : {};
+  }
+
+  function saveWorkbookMasteryMap(map) {
+    const next = map && typeof map === "object" ? map : {};
+    safeWrite(WORKBOOK_MASTERY_KEY, next);
+    return next;
+  }
+
   function getCalendarCompletion() {
     const completion = safeRead(CALENDAR_COMPLETION_KEY, {});
     return completion && typeof completion === "object" ? completion : {};
@@ -708,6 +783,8 @@
       KEYBOARD_DAILY_TASK_KEY,
       BILLING_SUBSCRIPTION_KEY,
       BILLING_USAGE_KEY,
+      WORKBOOK_HISTORY_KEY,
+      WORKBOOK_MASTERY_KEY,
       USER_PROFILE_KEY,
       ACTIVITY_LOG_KEY,
     },
@@ -716,6 +793,13 @@
     addWorksheetChars,
     removeWorksheetChar,
     clearWorksheetCart,
+    getWorkbookHistory,
+    saveWorkbookHistory,
+    appendWorkbookRecord,
+    getWorkbookRecordById,
+    updateWorkbookRecord,
+    getWorkbookMasteryMap,
+    saveWorkbookMasteryMap,
     getCalendarCompletion,
     getLearnedCharsFromCalendar,
     getFollowReadingRecords,
