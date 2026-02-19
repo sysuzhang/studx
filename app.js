@@ -15,6 +15,7 @@ const refs = {
   writerTarget: document.getElementById("writerTarget"),
   animateBtn: document.getElementById("animateBtn"),
   loopBtn: document.getElementById("loopBtn"),
+  speakBtn: document.getElementById("speakBtn"),
   quizBtn: document.getElementById("quizBtn"),
   strokeMeta: document.getElementById("strokeMeta"),
   strokeOrderList: document.getElementById("strokeOrderList"),
@@ -29,10 +30,38 @@ const state = {
 };
 
 let hanRegex;
+const speechState = { voice: null };
 try {
   hanRegex = /\p{Script=Han}/u;
 } catch (error) {
   hanRegex = /[\u3400-\u9fff\uf900-\ufaff]/;
+}
+
+function refreshSpeechVoice() {
+  if (!("speechSynthesis" in window)) {
+    speechState.voice = null;
+    return;
+  }
+  const voices = window.speechSynthesis.getVoices();
+  speechState.voice =
+    voices.find((voice) => voice.lang?.toLowerCase().startsWith("zh")) || voices[0] || null;
+}
+
+function speakText(text) {
+  const content = String(text ?? "").trim();
+  if (!content || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    return false;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(content);
+  utterance.lang = "zh-CN";
+  utterance.rate = 0.92;
+  utterance.pitch = 1;
+  if (speechState.voice) {
+    utterance.voice = speechState.voice;
+  }
+  window.speechSynthesis.speak(utterance);
+  return true;
 }
 
 function extractChineseChars(text) {
@@ -321,6 +350,13 @@ function bindEvents() {
 
   refs.loopBtn.addEventListener("click", toggleLoopMode);
 
+  refs.speakBtn?.addEventListener("click", () => {
+    if (!state.selectedChar) {
+      return;
+    }
+    speakText(state.selectedChar);
+  });
+
   refs.quizBtn.addEventListener("click", () => {
     if (!state.writer || !state.selectedChar) {
       return;
@@ -356,6 +392,10 @@ function bindEvents() {
 }
 
 function bootstrap() {
+  refreshSpeechVoice();
+  if ("speechSynthesis" in window && typeof window.speechSynthesis.addEventListener === "function") {
+    window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoice);
+  }
   const params = new URLSearchParams(window.location.search);
   const presetChars = extractChineseChars(params.get("chars") || "");
   refs.textInput.value = presetChars.length ? presetChars.join("") : "永和春风";

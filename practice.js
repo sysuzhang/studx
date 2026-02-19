@@ -9,6 +9,7 @@ const refs = {
   detailChar: document.getElementById("detailChar"),
   detailPinyin: document.getElementById("detailPinyin"),
   detailMeaning: document.getElementById("detailMeaning"),
+  speakCurrentBtn: document.getElementById("speakCurrentBtn"),
   pictographScript: document.getElementById("pictographScript"),
   pictographImage: document.getElementById("pictographImage"),
   pictographNote: document.getElementById("pictographNote"),
@@ -33,6 +34,7 @@ const state = {
 
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
 const dimensions = window.LEARNING_DIMENSIONS || { ageGroups: [], chineseLevels: [] };
+const speechState = { voice: null };
 
 function fillSelect(selectNode, options) {
   selectNode.innerHTML = "";
@@ -61,6 +63,33 @@ function buildRubyHtml(char, pinyin) {
   return `<ruby class="hz-ruby"><rb>${escapeHtml(char)}</rb><rt>${escapeHtml(
     pinyin
   )}</rt></ruby>`;
+}
+
+function refreshSpeechVoice() {
+  if (!("speechSynthesis" in window)) {
+    speechState.voice = null;
+    return;
+  }
+  const voices = window.speechSynthesis.getVoices();
+  speechState.voice =
+    voices.find((voice) => voice.lang?.toLowerCase().startsWith("zh")) || voices[0] || null;
+}
+
+function speakText(text) {
+  const content = String(text ?? "").trim();
+  if (!content || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    return false;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(content);
+  utterance.lang = "zh-CN";
+  utterance.rate = 0.92;
+  utterance.pitch = 1;
+  if (speechState.voice) {
+    utterance.voice = speechState.voice;
+  }
+  window.speechSynthesis.speak(utterance);
+  return true;
 }
 
 function annotateByTarget(text, targetChar, pinyin) {
@@ -117,8 +146,9 @@ function renderCharList(list) {
   }
 
   list.forEach((item) => {
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("div");
+    card.setAttribute("role", "button");
+    card.tabIndex = 0;
     card.dataset.char = item.char;
     card.className = `char-card${item.char === state.selectedChar ? " active" : ""}`;
 
@@ -138,10 +168,30 @@ function renderCharList(list) {
     mini.className = "mini";
     mini.textContent = item.pinyin;
 
+    const speakBtn = document.createElement("button");
+    speakBtn.type = "button";
+    speakBtn.className = "tiny-audio-btn";
+    speakBtn.textContent = "朗读";
+    speakBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      speakText(item.char);
+    });
+
+    const miniRow = document.createElement("div");
+    miniRow.className = "mini-row";
+    miniRow.appendChild(mini);
+    miniRow.appendChild(speakBtn);
+
     card.appendChild(thumb);
     card.appendChild(charNode);
-    card.appendChild(mini);
+    card.appendChild(miniRow);
     card.addEventListener("click", () => selectChar(item.char));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectChar(item.char);
+      }
+    });
     refs.charList.appendChild(card);
   });
 }
@@ -164,11 +214,26 @@ function renderWords(words, targetChar, targetPinyin) {
   }
   words.forEach((item) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="word annotated-text">${annotateByTarget(
+    const wordNode = document.createElement("span");
+    wordNode.className = "word annotated-text";
+    wordNode.innerHTML = annotateByTarget(
       item.word,
       targetChar,
       targetPinyin
-    )}</span>：${escapeHtml(item.meaning)}`;
+    );
+
+    const meaningNode = document.createElement("span");
+    meaningNode.textContent = `：${item.meaning}`;
+
+    const speakBtn = document.createElement("button");
+    speakBtn.type = "button";
+    speakBtn.className = "inline-audio-btn";
+    speakBtn.textContent = "朗读";
+    speakBtn.addEventListener("click", () => speakText(item.word));
+
+    li.appendChild(wordNode);
+    li.appendChild(meaningNode);
+    li.appendChild(speakBtn);
     refs.wordList.appendChild(li);
   });
 }
@@ -199,15 +264,32 @@ function renderIdioms(idioms, targetChar, targetPinyin) {
   idioms.forEach((item) => {
     const article = document.createElement("article");
     article.className = "idiom";
-    article.innerHTML = `
-      <h3 class="annotated-text">${annotateByTarget(
-        item.name,
-        targetChar,
-        targetPinyin
-      )}</h3>
-      <p>释义：${escapeHtml(item.meaning)}</p>
-      <p class="story">故事：${escapeHtml(item.story)}</p>
-    `;
+
+    const head = document.createElement("div");
+    head.className = "idiom-head";
+
+    const title = document.createElement("h3");
+    title.className = "annotated-text";
+    title.innerHTML = annotateByTarget(item.name, targetChar, targetPinyin);
+
+    const speakBtn = document.createElement("button");
+    speakBtn.type = "button";
+    speakBtn.className = "inline-audio-btn";
+    speakBtn.textContent = "朗读";
+    speakBtn.addEventListener("click", () => speakText(item.name));
+
+    const meaning = document.createElement("p");
+    meaning.textContent = `释义：${item.meaning}`;
+
+    const story = document.createElement("p");
+    story.className = "story";
+    story.textContent = `故事：${item.story}`;
+
+    head.appendChild(title);
+    head.appendChild(speakBtn);
+    article.appendChild(head);
+    article.appendChild(meaning);
+    article.appendChild(story);
     refs.idiomList.appendChild(article);
   });
 }
@@ -359,6 +441,11 @@ function filterLibrary() {
 
 function bindEvents() {
   refs.generateBtn.addEventListener("click", filterLibrary);
+  refs.speakCurrentBtn?.addEventListener("click", () => {
+    if (state.selectedChar) {
+      speakText(state.selectedChar);
+    }
+  });
   refs.pinyinToggle?.addEventListener("change", () => {
     state.showPinyin = refs.pinyinToggle.checked;
     renderCharList(state.filtered);
@@ -405,6 +492,10 @@ function initSelectByQuery() {
 }
 
 function bootstrap() {
+  refreshSpeechVoice();
+  if ("speechSynthesis" in window && typeof window.speechSynthesis.addEventListener === "function") {
+    window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoice);
+  }
   fillSelect(refs.ageSelect, dimensions.ageGroups);
   fillSelect(refs.levelSelect, dimensions.chineseLevels);
   if (!dimensions.ageGroups.length || !dimensions.chineseLevels.length) {
