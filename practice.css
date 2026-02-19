@@ -481,6 +481,26 @@ button {
 
 .stroke-order li {
   margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stroke-preview {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d9e2f2;
+  border-radius: 6px;
+  background: #f8fbff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+}
+
+.stroke-preview svg {
+  width: 22px;
+  height: 22px;
 }
 
 .idiom-list {

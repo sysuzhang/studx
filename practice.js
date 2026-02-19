@@ -51,6 +51,12 @@ const followState = {
   listening: false,
   recognition: null,
 };
+const HANZI_WRITER_CDN_URLS = [
+  "https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js",
+  "https://unpkg.com/hanzi-writer@3.7.3/dist/hanzi-writer.min.js",
+];
+
+let writerLoadPromise = null;
 const charPinyinMap = new Map(library.map((item) => [item.char, item.pinyin]));
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -69,6 +75,44 @@ function fillSelect(selectNode, options) {
     option.textContent = item.label;
     selectNode.appendChild(option);
   });
+}
+
+function loadExternalScript(src) {
+  return new Promise((resolve, reject) => {
+    const node = document.createElement("script");
+    node.src = src;
+    node.async = true;
+    node.onload = () => resolve(true);
+    node.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+    document.head.appendChild(node);
+  });
+}
+
+async function ensureHanziWriterReady() {
+  if (typeof window.HanziWriter !== "undefined") {
+    return true;
+  }
+  if (writerLoadPromise) {
+    return writerLoadPromise;
+  }
+  writerLoadPromise = (async () => {
+    for (const src of HANZI_WRITER_CDN_URLS) {
+      try {
+        await loadExternalScript(src);
+      } catch (error) {
+        // Try next CDN endpoint.
+      }
+      if (typeof window.HanziWriter !== "undefined") {
+        return true;
+      }
+    }
+    return false;
+  })();
+  const loaded = await writerLoadPromise;
+  if (!loaded) {
+    writerLoadPromise = null;
+  }
+  return loaded;
 }
 
 function escapeHtml(text) {
@@ -521,9 +565,19 @@ function renderStrokeOrder(strokes) {
     setStrokeMeta("暂未获取到笔画顺序数据。");
     return;
   }
-  strokes.forEach((_, index) => {
+  strokes.forEach((strokePath, index) => {
     const li = document.createElement("li");
-    li.textContent = `第 ${index + 1} 笔`;
+    const preview = document.createElement("span");
+    preview.className = "stroke-preview";
+    preview.innerHTML = `
+      <svg viewBox="0 0 1024 1024" aria-hidden="true">
+        <path d="${escapeHtml(strokePath)}" fill="#0f172a"></path>
+      </svg>
+    `;
+    const label = document.createElement("span");
+    label.textContent = `第 ${index + 1} 笔`;
+    li.appendChild(preview);
+    li.appendChild(label);
     refs.strokeOrderList.appendChild(li);
   });
 }
@@ -564,16 +618,17 @@ async function loadStrokeData(char) {
   renderStrokeOrder(payload.strokes);
 }
 
-function createWriter(char) {
+async function createWriter(char) {
   refs.writerTarget.innerHTML = "";
-  if (typeof HanziWriter === "undefined") {
+  const ready = await ensureHanziWriterReady();
+  if (!ready || typeof window.HanziWriter === "undefined") {
     setStrokeMeta("笔顺库加载失败，请刷新页面。");
     state.writer = null;
     return;
   }
 
   try {
-    state.writer = HanziWriter.create("writerTarget", char, {
+    state.writer = window.HanziWriter.create("writerTarget", char, {
       width: 260,
       height: 260,
       padding: 8,
