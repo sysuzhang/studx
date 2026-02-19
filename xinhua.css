@@ -303,6 +303,21 @@ button.ghost {
   color: #0f172a;
 }
 
+.upgrade-box {
+  border: 1px dashed #93c5fd;
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 10px;
+  color: #1e3a8a;
+  font-size: 13px;
+  display: grid;
+  gap: 8px;
+}
+
+.upgrade-box p {
+  margin: 0;
+}
+
 .detail-note {
   margin-top: 10px;
   border-left: 3px solid #bfdbfe;

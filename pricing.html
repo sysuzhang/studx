@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>订阅中心 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./pricing.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./typing.html">打字闯关</a>
+          <a href="./keyboard.html">键盘练习</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html">汉字总览</a>
+          <a href="./xinhua.html">新华字典</a>
+          <a href="./pricing.html" class="active">订阅中心</a>
+          <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html">用户中心</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>订阅中心</h1>
+        <p>基础学习永久免费，进阶能力按需订阅。我们通过“温和分层”保障学习价值，同时支持平台长期运营。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel">
+        <h2>计费设计原则</h2>
+        <ul class="principles">
+          <li>✅ 免费版保留完整基础学习路径：分级练习、拼音、打字闯关、初级键盘关卡、基础字典检索。</li>
+          <li>✅ 付费版主要覆盖高频与高阶需求：无限打印、中高级键盘关卡、字典进阶释义。</li>
+          <li>✅ 按月/按年灵活选择，年付有折扣，降低长期学习成本。</li>
+        </ul>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <h2>当前套餐与今日配额</h2>
+          <div id="currentPlanBox" class="current-plan"></div>
+          <p id="actionTip" class="tip"></p>
+        </article>
+        <article class="panel">
+          <h2>套餐列表</h2>
+          <div id="planGrid" class="plan-grid"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>权益对比（简表）</h2>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>能力项</th>
+                <th>基础版</th>
+                <th>进阶版（月）</th>
+                <th>进阶版（年）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>字帖打印</td>
+                <td>2 次/天</td>
+                <td>不限量</td>
+                <td>不限量</td>
+              </tr>
+              <tr>
+                <td>字典检索次数</td>
+                <td>60 次/天</td>
+                <td>不限量</td>
+                <td>不限量</td>
+              </tr>
+              <tr>
+                <td>键盘中/高级关卡</td>
+                <td>—</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>新华字典进阶释义</td>
+                <td>—</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+              <tr>
+                <td>优先反馈支持</td>
+                <td>—</td>
+                <td>✓</td>
+                <td>✓</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./learning-store.js"></script>
+    <script src="./pricing.js" defer></script>
+  </body>
+</html>

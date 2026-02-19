@@ -14,6 +14,7 @@ const refs = {
   generateBtn: document.getElementById("generateBtn"),
   printBtn: document.getElementById("printBtn"),
   clearBtn: document.getElementById("clearBtn"),
+  billingTip: document.getElementById("billingTip"),
   charPicker: document.getElementById("charPicker"),
   worksheetPages: document.getElementById("worksheetPages"),
   currentChar: document.getElementById("currentChar"),
@@ -130,6 +131,29 @@ function refreshCartPanel() {
     });
     refs.cartChars.appendChild(chip);
   });
+}
+
+function formatQuota(limit, used) {
+  if (limit === null) {
+    return `已使用 ${used} 次（不限量）`;
+  }
+  return `已使用 ${used}/${limit} 次`;
+}
+
+function refreshBillingTip() {
+  if (!refs.billingTip) {
+    return;
+  }
+  if (!store || typeof store.getBillingSnapshot !== "function") {
+    refs.billingTip.textContent = "计费状态不可用。";
+    return;
+  }
+  const snapshot = store.getBillingSnapshot();
+  const planName = snapshot?.plan?.name || "基础版";
+  const usage = snapshot?.usage?.worksheetPrint || { used: 0, limit: 2, remaining: 2 };
+  const quotaText = formatQuota(usage.limit, usage.used);
+  const remainText = usage.limit === null ? "剩余：无限" : `剩余：${usage.remaining} 次`;
+  refs.billingTip.innerHTML = `当前套餐：<strong>${planName}</strong>；打印配额：${quotaText}，${remainText}。<a href="./pricing.html">查看订阅方案</a>`;
 }
 
 function addCharsToCart(chars, source) {
@@ -510,7 +534,26 @@ function toggleLoopMode() {
 
 function bindEvents() {
   refs.generateBtn.addEventListener("click", regenerate);
-  refs.printBtn.addEventListener("click", () => window.print());
+  refs.printBtn.addEventListener("click", () => {
+    if (!store || typeof store.consumeFeatureUsage !== "function") {
+      window.print();
+      return;
+    }
+    const result = store.consumeFeatureUsage("worksheet_print", 1, { source: "worksheet_print" });
+    if (!result.ok) {
+      const limitText = result.limit === null ? "不限" : `${result.limit} 次/天`;
+      const shouldUpgrade = window.confirm(
+        `当前套餐“${result.planName}”的字帖打印配额已用完（${limitText}）。\n是否前往订阅中心升级套餐？`
+      );
+      if (shouldUpgrade) {
+        window.location.href = "./pricing.html";
+      }
+      refreshBillingTip();
+      return;
+    }
+    refreshBillingTip();
+    window.print();
+  });
   refs.clearBtn.addEventListener("click", () => {
     refs.textInput.value = "";
     regenerate();
@@ -604,6 +647,8 @@ function bindEvents() {
       }
     });
   });
+
+  window.addEventListener("focus", refreshBillingTip);
 }
 
 function bootstrap() {
@@ -621,6 +666,7 @@ function bootstrap() {
     ? cart.join("")
     : "永和春风";
   refreshCartPanel();
+  refreshBillingTip();
   bindEvents();
   regenerate();
 }

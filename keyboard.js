@@ -2,6 +2,7 @@ const refs = {
   keySetSelect: document.getElementById("keySetSelect"),
   keyboardDurationSelect: document.getElementById("keyboardDurationSelect"),
   keyboardLevelSelect: document.getElementById("keyboardLevelSelect"),
+  membershipTip: document.getElementById("membershipTip"),
   keyboardStartBtn: document.getElementById("keyboardStartBtn"),
   keyboardEndBtn: document.getElementById("keyboardEndBtn"),
   dailyTaskApplyBtn: document.getElementById("dailyTaskApplyBtn"),
@@ -46,6 +47,12 @@ const KEY_SET_LABEL = {
 };
 
 const LEVEL_LABEL = {
+  beginner: "初级",
+  intermediate: "中级",
+  advanced: "高级",
+};
+
+const LEVEL_OPTION_LABEL = {
   beginner: "初级",
   intermediate: "中级",
   advanced: "高级",
@@ -226,6 +233,51 @@ function getSetLabel(setName) {
 
 function getLevelLabel(levelName) {
   return LEVEL_LABEL[levelName] || "初级";
+}
+
+function isAdvancedLevel(levelName) {
+  return levelName === "intermediate" || levelName === "advanced";
+}
+
+function hasAdvancedLevelAccess() {
+  if (!store || typeof store.isFeatureEnabled !== "function") {
+    return true;
+  }
+  return store.isFeatureEnabled("keyboard_advanced_level");
+}
+
+function refreshMembershipTip() {
+  if (!refs.membershipTip) {
+    return;
+  }
+  if (!store || typeof store.getBillingSnapshot !== "function") {
+    refs.membershipTip.textContent = "";
+    return;
+  }
+  const billing = store.getBillingSnapshot();
+  const planName = billing?.plan?.name || "基础版";
+  if (hasAdvancedLevelAccess()) {
+    refs.membershipTip.innerHTML = `当前套餐：<strong>${planName}</strong>，已解锁中级/高级关卡。<a href="./pricing.html">查看订阅方案</a>`;
+    return;
+  }
+  refs.membershipTip.innerHTML = `当前套餐：<strong>${planName}</strong>。中级/高级关卡为进阶版权益，基础版可完整体验初级关卡。<a href="./pricing.html">升级解锁</a>`;
+}
+
+function refreshLevelOptions() {
+  const enabled = hasAdvancedLevelAccess();
+  [...refs.keyboardLevelSelect.options].forEach((option) => {
+    const baseLabel = LEVEL_OPTION_LABEL[option.value] || option.textContent;
+    if (option.value === "beginner") {
+      option.disabled = false;
+      option.textContent = baseLabel;
+      return;
+    }
+    option.disabled = !enabled;
+    option.textContent = enabled ? baseLabel : `${baseLabel}（会员）`;
+  });
+  if (!enabled && isAdvancedLevel(refs.keyboardLevelSelect.value)) {
+    refs.keyboardLevelSelect.value = "beginner";
+  }
 }
 
 function setFeedback(type, text) {
@@ -742,7 +794,19 @@ function startGame() {
     return;
   }
   state.keySet = refs.keySetSelect.value || "home";
-  state.level = refs.keyboardLevelSelect.value || "beginner";
+  const desiredLevel = refs.keyboardLevelSelect.value || "beginner";
+  if (isAdvancedLevel(desiredLevel) && !hasAdvancedLevelAccess()) {
+    if (store && typeof store.consumeFeatureUsage === "function") {
+      store.consumeFeatureUsage("keyboard_advanced_level", 1, {
+        source: "keyboard_start_game",
+      });
+    }
+    refs.keyboardLevelSelect.value = "beginner";
+    state.level = "beginner";
+    setFeedback("warn", "中级/高级关卡为进阶版权益，已自动切换到初级。");
+  } else {
+    state.level = desiredLevel;
+  }
   state.duration = Number.parseInt(refs.keyboardDurationSelect.value, 10) || 60;
   state.timeLeft = state.duration;
   state.lastFrameTs = 0;
@@ -811,12 +875,32 @@ function renderDailyTask(task) {
     : "状态：未完成";
 }
 
+function normalizeDailyTaskByPlan(task) {
+  if (!task || hasAdvancedLevelAccess() || !isAdvancedLevel(task.level)) {
+    return task;
+  }
+  const downgraded = {
+    ...task,
+    level: "beginner",
+    keySet: task.keySet === "full" ? "pinyin" : task.keySet,
+    duration: Math.min(task.duration || 60, 90),
+    targetHits: Math.min(task.targetHits || 35, 60),
+    targetAccuracy: Math.min(task.targetAccuracy || 75, 82),
+    targetSpeed: Math.min(task.targetSpeed || 70, 95),
+  };
+  if (store && typeof store.saveKeyboardDailyTask === "function") {
+    return store.saveKeyboardDailyTask(downgraded, task.date);
+  }
+  return downgraded;
+}
+
 function loadDailyTask() {
   if (!store || typeof store.getKeyboardDailyTask !== "function") {
     renderDailyTask(null);
     return null;
   }
-  const task = store.getKeyboardDailyTask(toDateKey());
+  const rawTask = store.getKeyboardDailyTask(toDateKey());
+  const task = normalizeDailyTaskByPlan(rawTask);
   renderDailyTask(task);
   return task;
 }
@@ -829,7 +913,12 @@ function applyDailyTaskSettings() {
   }
   refs.keySetSelect.value = task.keySet;
   refs.keyboardDurationSelect.value = `${task.duration}`;
-  refs.keyboardLevelSelect.value = task.level;
+  const nextLevel = isAdvancedLevel(task.level) && !hasAdvancedLevelAccess() ? "beginner" : task.level;
+  refs.keyboardLevelSelect.value = nextLevel;
+  if (nextLevel !== task.level) {
+    setFeedback("warn", "当前套餐暂不支持中高级日任务，已按初级配置应用。");
+    return;
+  }
   setFeedback("ok", "已应用每日任务配置，点击“开始空战”即可挑战。");
 }
 
@@ -893,6 +982,10 @@ function bindEvents() {
     }
     movePlaneBy(0);
   });
+  window.addEventListener("focus", () => {
+    refreshLevelOptions();
+    refreshMembershipTip();
+  });
   refs.battlefield.addEventListener("mousemove", (event) => {
     if (!state.running) {
       return;
@@ -903,6 +996,8 @@ function bindEvents() {
 
 function bootstrap() {
   bindEvents();
+  refreshLevelOptions();
+  refreshMembershipTip();
   centerPlane();
   refreshHud();
   renderMissionPanel();

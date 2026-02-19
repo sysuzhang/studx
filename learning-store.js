@@ -5,6 +5,8 @@
   const TYPING_GAME_KEY = "typingGameRecordsV1";
   const KEYBOARD_PRACTICE_KEY = "keyboardPracticeRecordsV1";
   const KEYBOARD_DAILY_TASK_KEY = "keyboardDailyTaskV1";
+  const BILLING_SUBSCRIPTION_KEY = "billingSubscriptionPlanV1";
+  const BILLING_USAGE_KEY = "billingUsageMeterV1";
   const USER_PROFILE_KEY = "userProfileV1";
   const ACTIVITY_LOG_KEY = "learningActivityLogV1";
 
@@ -60,12 +62,257 @@
     },
   ];
 
+  const BILLING_PLANS = {
+    free: {
+      id: "free",
+      name: "基础版",
+      priceLabel: "¥0",
+      cycle: "free",
+      description: "保留核心学习价值，适合入门用户。",
+      quotas: {
+        worksheetPrintDailyLimit: 2,
+        dictionaryLookupDailyLimit: 60,
+      },
+      features: {
+        keyboardAdvancedLevel: false,
+        dictionaryAdvanced: false,
+        prioritySupport: false,
+      },
+    },
+    pro_monthly: {
+      id: "pro_monthly",
+      name: "进阶版（月）",
+      priceLabel: "¥29 / 月",
+      cycle: "monthly",
+      description: "高频学习者优选，解锁高阶训练与无限打印。",
+      quotas: {
+        worksheetPrintDailyLimit: null,
+        dictionaryLookupDailyLimit: null,
+      },
+      features: {
+        keyboardAdvancedLevel: true,
+        dictionaryAdvanced: true,
+        prioritySupport: true,
+      },
+    },
+    pro_yearly: {
+      id: "pro_yearly",
+      name: "进阶版（年）",
+      priceLabel: "¥299 / 年",
+      cycle: "yearly",
+      description: "全年学习方案，折合约 25 元/月。",
+      quotas: {
+        worksheetPrintDailyLimit: null,
+        dictionaryLookupDailyLimit: null,
+      },
+      features: {
+        keyboardAdvancedLevel: true,
+        dictionaryAdvanced: true,
+        prioritySupport: true,
+      },
+    },
+  };
+
   function toDateKey(ts) {
     const date = new Date(Number.isFinite(ts) ? ts : Date.now());
     const y = date.getFullYear();
     const m = `${date.getMonth() + 1}`.padStart(2, "0");
     const d = `${date.getDate()}`.padStart(2, "0");
     return `${y}-${m}-${d}`;
+  }
+
+  function normalizePlanId(planId) {
+    return BILLING_PLANS[planId] ? planId : "free";
+  }
+
+  function getPlanById(planId) {
+    return BILLING_PLANS[normalizePlanId(planId)];
+  }
+
+  function getBillingPlans() {
+    return Object.values(BILLING_PLANS).map((plan) => ({
+      ...plan,
+      quotas: { ...(plan.quotas || {}) },
+      features: { ...(plan.features || {}) },
+    }));
+  }
+
+  function getSubscription() {
+    const raw = safeRead(BILLING_SUBSCRIPTION_KEY, {});
+    const planId = normalizePlanId(raw?.planId);
+    return {
+      planId,
+      activatedAt: Number.isFinite(raw?.activatedAt) ? raw.activatedAt : 0,
+      source: raw?.source || "system",
+    };
+  }
+
+  function setSubscription(planId, source) {
+    const targetId = normalizePlanId(planId);
+    const prev = getSubscription();
+    const next = {
+      planId: targetId,
+      activatedAt: Date.now(),
+      source: source || "pricing",
+    };
+    safeWrite(BILLING_SUBSCRIPTION_KEY, next);
+    logActivity("billing_plan_change", {
+      from: prev.planId,
+      to: next.planId,
+      source: next.source,
+    });
+    return next;
+  }
+
+  function getBillingUsageMap() {
+    const usage = safeRead(BILLING_USAGE_KEY, {});
+    return usage && typeof usage === "object" ? usage : {};
+  }
+
+  function getUsageValueByDay(featureKey, dateKey) {
+    const usage = getBillingUsageMap();
+    const day = String(dateKey || toDateKey()).slice(0, 10);
+    const row = usage[day];
+    if (!row || typeof row !== "object") {
+      return 0;
+    }
+    return Number.isFinite(row[featureKey]) ? row[featureKey] : 0;
+  }
+
+  function setUsageValueByDay(featureKey, value, dateKey) {
+    const usage = getBillingUsageMap();
+    const day = String(dateKey || toDateKey()).slice(0, 10);
+    const row = usage[day] && typeof usage[day] === "object" ? usage[day] : {};
+    row[featureKey] = value;
+    usage[day] = row;
+    safeWrite(BILLING_USAGE_KEY, usage);
+  }
+
+  function getFeatureDailyLimit(featureKey, planId) {
+    const plan = getPlanById(planId);
+    if (featureKey === "worksheet_print") {
+      return plan.quotas.worksheetPrintDailyLimit;
+    }
+    if (featureKey === "dictionary_lookup") {
+      return plan.quotas.dictionaryLookupDailyLimit;
+    }
+    return null;
+  }
+
+  function isFeatureEnabled(featureKey, planId) {
+    const plan = getPlanById(planId || getSubscription().planId);
+    if (featureKey === "keyboard_advanced_level") {
+      return Boolean(plan.features.keyboardAdvancedLevel);
+    }
+    if (featureKey === "dictionary_advanced") {
+      return Boolean(plan.features.dictionaryAdvanced);
+    }
+    if (featureKey === "priority_support") {
+      return Boolean(plan.features.prioritySupport);
+    }
+    return true;
+  }
+
+  function canUseFeature(featureKey, amount, dateKey) {
+    const need = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 1;
+    const subscription = getSubscription();
+    const plan = getPlanById(subscription.planId);
+    const limit = getFeatureDailyLimit(featureKey, subscription.planId);
+    const used = getUsageValueByDay(featureKey, dateKey);
+
+    if (featureKey === "keyboard_advanced_level" || featureKey === "dictionary_advanced") {
+      const enabled = isFeatureEnabled(featureKey, subscription.planId);
+      return {
+        ok: enabled,
+        featureKey,
+        planId: subscription.planId,
+        planName: plan.name,
+        used: enabled ? 0 : 1,
+        limit: enabled ? null : 0,
+        remaining: enabled ? Infinity : 0,
+      };
+    }
+
+    if (limit === null) {
+      return {
+        ok: true,
+        featureKey,
+        planId: subscription.planId,
+        planName: plan.name,
+        used,
+        limit: null,
+        remaining: Infinity,
+      };
+    }
+    const nextUsed = used + need;
+    return {
+      ok: nextUsed <= limit,
+      featureKey,
+      planId: subscription.planId,
+      planName: plan.name,
+      used,
+      limit,
+      remaining: Math.max(0, limit - used),
+    };
+  }
+
+  function consumeFeatureUsage(featureKey, amount, payload) {
+    const need = Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 1;
+    const check = canUseFeature(featureKey, need);
+    if (!check.ok) {
+      logActivity("billing_paywall_hit", {
+        featureKey,
+        planId: check.planId,
+        limit: check.limit,
+        used: check.used,
+        source: payload?.source || "unknown",
+      });
+      return check;
+    }
+    if (check.limit === null) {
+      return check;
+    }
+    const current = getUsageValueByDay(featureKey, payload?.dateKey);
+    const next = current + need;
+    setUsageValueByDay(featureKey, next, payload?.dateKey);
+    const result = {
+      ...check,
+      used: next,
+      remaining: Math.max(0, check.limit - next),
+    };
+    return result;
+  }
+
+  function getBillingSnapshot() {
+    const subscription = getSubscription();
+    const plan = getPlanById(subscription.planId);
+    const today = toDateKey();
+    const worksheetLimit = getFeatureDailyLimit("worksheet_print", subscription.planId);
+    const worksheetUsed = getUsageValueByDay("worksheet_print", today);
+    const lookupLimit = getFeatureDailyLimit("dictionary_lookup", subscription.planId);
+    const lookupUsed = getUsageValueByDay("dictionary_lookup", today);
+    return {
+      subscription,
+      plan,
+      today,
+      usage: {
+        worksheetPrint: {
+          used: worksheetUsed,
+          limit: worksheetLimit,
+          remaining: worksheetLimit === null ? Infinity : Math.max(0, worksheetLimit - worksheetUsed),
+        },
+        dictionaryLookup: {
+          used: lookupUsed,
+          limit: lookupLimit,
+          remaining: lookupLimit === null ? Infinity : Math.max(0, lookupLimit - lookupUsed),
+        },
+      },
+      features: {
+        keyboardAdvancedLevel: isFeatureEnabled("keyboard_advanced_level", subscription.planId),
+        dictionaryAdvanced: isFeatureEnabled("dictionary_advanced", subscription.planId),
+        prioritySupport: isFeatureEnabled("priority_support", subscription.planId),
+      },
+    };
   }
 
   function pickKeyboardDailyTemplate(dateKey) {
@@ -459,6 +706,8 @@
       TYPING_GAME_KEY,
       KEYBOARD_PRACTICE_KEY,
       KEYBOARD_DAILY_TASK_KEY,
+      BILLING_SUBSCRIPTION_KEY,
+      BILLING_USAGE_KEY,
       USER_PROFILE_KEY,
       ACTIVITY_LOG_KEY,
     },
@@ -482,6 +731,13 @@
     saveKeyboardDailyTask,
     updateKeyboardDailyTaskProgress,
     getKeyboardDailyTaskStats,
+    getBillingPlans,
+    getSubscription,
+    setSubscription,
+    isFeatureEnabled,
+    canUseFeature,
+    consumeFeatureUsage,
+    getBillingSnapshot,
     getUserProfile,
     saveUserProfile,
     getActivityLogs,

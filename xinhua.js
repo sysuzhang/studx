@@ -6,6 +6,7 @@ const refs = {
   withPictographOnly: document.getElementById("withPictographOnly"),
   clearBtn: document.getElementById("clearBtn"),
   resultMeta: document.getElementById("resultMeta"),
+  membershipMeta: document.getElementById("membershipMeta"),
   entryList: document.getElementById("entryList"),
   detailBox: document.getElementById("detailBox"),
 };
@@ -60,6 +61,30 @@ function logLookup(char) {
   store.logActivity("dictionary_lookup", { char, source: "xinhua" });
 }
 
+function hasDictionaryAdvancedAccess() {
+  if (!store || typeof store.isFeatureEnabled !== "function") {
+    return true;
+  }
+  return store.isFeatureEnabled("dictionary_advanced");
+}
+
+function renderMembershipMeta() {
+  if (!refs.membershipMeta) {
+    return;
+  }
+  if (!store || typeof store.getBillingSnapshot !== "function") {
+    refs.membershipMeta.textContent = "";
+    return;
+  }
+  const billing = store.getBillingSnapshot();
+  const planName = billing?.plan?.name || "基础版";
+  if (hasDictionaryAdvancedAccess()) {
+    refs.membershipMeta.innerHTML = `当前套餐：<strong>${planName}</strong>，已解锁字典进阶释义。`;
+    return;
+  }
+  refs.membershipMeta.innerHTML = `当前套餐：<strong>${planName}</strong>。基础释义可免费使用，进阶释义可在 <a href="./pricing.html">订阅中心</a> 解锁。`;
+}
+
 function levelText(levels) {
   return (levels || []).join(" / ") || "未标注";
 }
@@ -97,18 +122,26 @@ function renderEntryList() {
     wrap.innerHTML = entryCardHtml(entry, entry.char === state.selectedChar);
     const card = wrap.firstElementChild;
     card.addEventListener("click", () => {
-      selectChar(entry.char);
+      selectChar(entry.char, { meter: true });
     });
     refs.entryList.appendChild(card);
   });
 }
 
-function detailHtml(entry) {
+function detailHtml(entry, advancedEnabled) {
   const words = entry.words || [];
   const idioms = entry.idioms || [];
   const examples = entry.examples || [];
+  const visibleIdioms = advancedEnabled ? idioms : idioms.slice(0, 2);
+  const visibleExamples = advancedEnabled ? examples : examples.slice(0, 1);
   const synonymText = (entry.synonyms || []).join("、") || "暂无";
   const antonymText = (entry.antonyms || []).join("、") || "暂无";
+  const upgradeBlock = `
+    <div class="upgrade-box">
+      <p>进阶释义属于会员功能：可查看完整近反义、完整成语故事、完整例句与象形资料。</p>
+      <a class="link-btn" href="./pricing.html">前往订阅中心</a>
+    </div>
+  `;
 
   return `
     <div class="detail-head">
@@ -138,11 +171,17 @@ function detailHtml(entry) {
       ${(entry.meanings || []).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
     </ol>
 
-    <h3>近义 / 反义</h3>
-    <div class="chip-row">
-      <span class="chip">近义：${escapeHtml(synonymText)}</span>
-      <span class="chip">反义：${escapeHtml(antonymText)}</span>
-    </div>
+    <h3>近义 / 反义${advancedEnabled ? "" : "（会员）"}</h3>
+    ${
+      advancedEnabled
+        ? `
+      <div class="chip-row">
+        <span class="chip">近义：${escapeHtml(synonymText)}</span>
+        <span class="chip">反义：${escapeHtml(antonymText)}</span>
+      </div>
+    `
+        : upgradeBlock
+    }
 
     <h3>常用词组（${words.length}）</h3>
     ${
@@ -159,36 +198,40 @@ function detailHtml(entry) {
         : `<p class="empty">暂无词组。</p>`
     }
 
-    <h3>成语（${idioms.length}）</h3>
+    <h3>成语（${visibleIdioms.length}${advancedEnabled ? "" : ` / ${idioms.length}`}）</h3>
     ${
-      idioms.length
-        ? idioms
+      visibleIdioms.length
+        ? visibleIdioms
             .map(
               (entryIdiom) => `
           <div class="word-item">
             <p><strong>${escapeHtml(entryIdiom.name)}</strong>：${escapeHtml(entryIdiom.meaning)}</p>
-            ${entryIdiom.story ? `<p>${escapeHtml(entryIdiom.story)}</p>` : ""}
+            ${advancedEnabled && entryIdiom.story ? `<p>${escapeHtml(entryIdiom.story)}</p>` : ""}
           </div>
         `
             )
             .join("")
         : `<p class="empty">暂无成语。</p>`
     }
+    ${!advancedEnabled && idioms.length > visibleIdioms.length ? `<p class="meta">更多成语故事已折叠，开通会员后可查看全部。</p>` : ""}
 
-    <h3>例句参考</h3>
+    <h3>例句参考${advancedEnabled ? "" : "（会员可看完整）"}</h3>
     <ul class="detail-list">
-      ${examples.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+      ${visibleExamples.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
     </ul>
+    ${!advancedEnabled && examples.length > visibleExamples.length ? `<p class="meta">已展示 1 条示例，会员可查看完整例句。</p>` : ""}
 
-    <h3>象形图参考</h3>
+    <h3>象形图参考${advancedEnabled ? "" : "（会员）"}</h3>
     ${
-      entry.pictograph?.image
+      advancedEnabled && entry.pictograph?.image
         ? `<div class="word-item">
             <p><strong>${escapeHtml(entry.pictograph.script || "字形")}</strong></p>
             <p>${escapeHtml(entry.pictograph.note || "用于辅助字源理解。")}</p>
             <p><a class="link-btn" href="${escapeHtml(entry.pictograph.source || "#")}" target="_blank" rel="noopener noreferrer">查看来源</a></p>
           </div>`
-        : `<p class="empty">暂无象形图。</p>`
+        : advancedEnabled
+        ? `<p class="empty">暂无象形图。</p>`
+        : upgradeBlock
     }
 
     <p class="detail-note">
@@ -197,14 +240,30 @@ function detailHtml(entry) {
   `;
 }
 
-function selectChar(char) {
+function selectChar(char, options) {
+  const opts = options && typeof options === "object" ? options : {};
+  if (opts.meter && store && typeof store.consumeFeatureUsage === "function") {
+    const quota = store.consumeFeatureUsage("dictionary_lookup", 1, { source: "xinhua_manual_lookup" });
+    if (!quota.ok) {
+      refs.detailBox.innerHTML = `
+        <div class="upgrade-box">
+          <p>今日词典检索次数已达上限（${quota.limit} 次）。</p>
+          <p>你仍可浏览已打开词条，若需继续高频检索，可前往订阅中心升级。</p>
+          <a class="link-btn" href="./pricing.html">去订阅中心</a>
+        </div>
+      `;
+      renderMembershipMeta();
+      return;
+    }
+  }
   state.selectedChar = char;
   const entry = state.entries.find((item) => item.char === char);
   if (!entry) {
     refs.detailBox.innerHTML = `<p class="empty">未找到词条。</p>`;
     return;
   }
-  refs.detailBox.innerHTML = detailHtml(entry);
+  const advancedEnabled = hasDictionaryAdvancedAccess();
+  refs.detailBox.innerHTML = detailHtml(entry, advancedEnabled);
   refs.entryList.querySelectorAll(".entry-item").forEach((node) => {
     node.classList.toggle("active", node.dataset.char === char);
   });
@@ -216,6 +275,7 @@ function selectChar(char) {
     store.addWorksheetChars(entry.char, "xinhua_detail");
   });
   logLookup(char);
+  renderMembershipMeta();
 }
 
 function applyFilters() {
@@ -262,7 +322,7 @@ function applyFilters() {
     return;
   }
   const preferred = list.find((entry) => entry.char === state.selectedChar) || list[0];
-  selectChar(preferred.char);
+  selectChar(preferred.char, { meter: false });
 }
 
 function resetFilters() {
@@ -291,6 +351,7 @@ function bootstrap() {
   fillSelect(refs.radicalFilter, radicals, "全部部首");
   fillSelect(refs.levelFilter, levels, "全部级别");
   bindEvents();
+  renderMembershipMeta();
 
   const char = parseQueryChar();
   if (char) {

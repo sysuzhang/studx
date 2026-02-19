@@ -1,0 +1,220 @@
+:root {
+  --bg: #f4f7ff;
+  --panel: #ffffff;
+  --line: #d8e3f4;
+  --text: #0f172a;
+  --muted: #475569;
+  --brand: #1d4ed8;
+  --brand-soft: #e7efff;
+  --ok: #059669;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.topbar {
+  padding: 18px clamp(16px, 4vw, 48px) 28px;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(125, 211, 252, 0.26), transparent 36%),
+    radial-gradient(circle at 88% 10%, rgba(147, 197, 253, 0.24), transparent 44%),
+    linear-gradient(180deg, #eef3ff 0%, #f4f7ff 100%);
+  border-bottom: 1px solid var(--line);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand {
+  text-decoration: none;
+  color: #1e3a8a;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.links a {
+  text-decoration: none;
+  color: #1f2937;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.links a.active,
+.links a:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.hero h1 {
+  margin: 16px 0 8px;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.hero p {
+  margin: 0;
+  color: #334155;
+}
+
+.page {
+  padding: 16px clamp(16px, 4vw, 48px) 28px;
+  display: grid;
+  gap: 12px;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+h2 {
+  margin: 0 0 10px;
+}
+
+.principles {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 12px;
+}
+
+.current-plan {
+  display: grid;
+  gap: 8px;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.plan-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.plan-card.active {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #dbeafe inset;
+}
+
+.plan-title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.plan-price {
+  margin: 0;
+  font-size: 20px;
+  color: #1e3a8a;
+  font-weight: 800;
+}
+
+.plan-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.plan-list {
+  margin: 0;
+  padding-left: 16px;
+  color: #334155;
+  font-size: 13px;
+  display: grid;
+  gap: 4px;
+}
+
+button {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: #fff;
+  color: #1f2937;
+  border-color: var(--line);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.status.ok {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.tip {
+  margin: 8px 0 0;
+  min-height: 18px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+}
+
+.compare-table th,
+.compare-table td {
+  border: 1px solid #dde6f6;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.compare-table th {
+  background: #f3f7ff;
+}
+
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

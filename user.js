@@ -43,6 +43,13 @@ function formatTime(ts) {
   return `${y}-${m}-${d} ${h}:${min}`;
 }
 
+function quotaSummary(limit, used) {
+  if (limit === null) {
+    return `${used} / ∞`;
+  }
+  return `${used}/${limit}`;
+}
+
 function saveProfile() {
   if (!store) {
     return;
@@ -116,6 +123,11 @@ function renderStats() {
   const keyboardDailyStats = store
     ? store.getKeyboardDailyTaskStats()
     : { totalDays: 0, completedDays: 0, completionRate: 0, todayCompleted: false, latestCompletedAt: 0 };
+  const billing = store && typeof store.getBillingSnapshot === "function" ? store.getBillingSnapshot() : null;
+  const currentPlanName = billing?.plan?.name || "基础版";
+  const printUsage = billing?.usage?.worksheetPrint || { used: 0, limit: 2 };
+  const dictUsage = billing?.usage?.dictionaryLookup || { used: 0, limit: 60 };
+  const keyboardAdvancedUnlocked = billing?.features?.keyboardAdvancedLevel ? "已解锁" : "未解锁";
   const cart = store ? store.getWorksheetCart() : [];
   const progress = library.length
     ? Math.round((calendarStats.learnedChars.length / library.length) * 100)
@@ -175,6 +187,22 @@ function renderStats() {
       <p class="value">${cart.length}</p>
     </article>
     <article class="stat">
+      <p class="label">当前套餐</p>
+      <p class="value">${currentPlanName}</p>
+    </article>
+    <article class="stat">
+      <p class="label">今日字帖打印</p>
+      <p class="value">${quotaSummary(printUsage.limit, printUsage.used)}</p>
+    </article>
+    <article class="stat">
+      <p class="label">今日字典检索</p>
+      <p class="value">${quotaSummary(dictUsage.limit, dictUsage.used)}</p>
+    </article>
+    <article class="stat">
+      <p class="label">键盘进阶关卡</p>
+      <p class="value">${keyboardAdvancedUnlocked}</p>
+    </article>
+    <article class="stat">
       <p class="label">整体覆盖进度</p>
       <p class="value">${progress}%</p>
     </article>
@@ -194,6 +222,7 @@ function evaluateLevel() {
     ? store.getKeyboardDailyTaskStats()
     : { totalDays: 0, completedDays: 0, completionRate: 0, todayCompleted: false, latestCompletedAt: 0 };
   const profile = store ? store.getUserProfile() : { targetLevel: "HSK1", dailyMinutes: 20, goals: "" };
+  const billing = store && typeof store.getBillingSnapshot === "function" ? store.getBillingSnapshot() : null;
   const learned = calendarStats.learnedChars.length;
 
   let stage = "启蒙阶段";
@@ -240,6 +269,9 @@ function evaluateLevel() {
     keyboardDailyStats.todayCompleted
       ? "今日键位任务已完成，可把练习重心切换到分级汉字闯关。"
       : "建议先在打字闯关页完成“每日键位任务”，形成稳定输入习惯。",
+    billing?.subscription?.planId === "free"
+      ? "你当前使用基础版：如需高频打印字帖或挑战键盘中高级关卡，可在“订阅中心”按需升级。"
+      : "你当前已开通进阶版：建议充分使用中高级键位关卡与完整字典释义强化学习效率。",
   ];
 
   refs.evaluationBox.innerHTML = `
@@ -321,6 +353,27 @@ function activityMessage(log) {
   }
   if (log.type === "dictionary_lookup") {
     return `在新华字典查询了汉字：${log.payload?.char || ""}`;
+  }
+  if (log.type === "billing_plan_change") {
+    const planMap = {
+      free: "基础版",
+      pro_monthly: "进阶版（月）",
+      pro_yearly: "进阶版（年）",
+    };
+    return `套餐变更：${planMap[log.payload?.from] || log.payload?.from || "-"} → ${
+      planMap[log.payload?.to] || log.payload?.to || "-"
+    }`;
+  }
+  if (log.type === "billing_paywall_hit") {
+    const featureMap = {
+      worksheet_print: "字帖打印",
+      dictionary_lookup: "字典检索",
+      keyboard_advanced_level: "键盘中高级关卡",
+      dictionary_advanced: "字典进阶释义",
+    };
+    return `触发套餐限制：${featureMap[log.payload?.featureKey] || log.payload?.featureKey || "会员功能"}（当前套餐：${
+      log.payload?.planId || "free"
+    }）`;
   }
   return "完成了一次学习操作";
 }
