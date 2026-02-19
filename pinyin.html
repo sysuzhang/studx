@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>拼音教学频道 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./pinyin.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html" class="active">拼音频道</a>
+          <a href="./worksheet.html">字帖工坊</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>拼音教学频道</h1>
+        <p>系统学习声母、韵母、声调和拼读规则，建立标准发音基础。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel intro">
+        <h2>学习路线</h2>
+        <ol>
+          <li>先掌握声母与韵母发音，再理解四声调值。</li>
+          <li>通过拼读练习组合音节，观察带调拼音写法。</li>
+          <li>点击“播放示例”，对照听辨并反复练习。</li>
+        </ol>
+      </section>
+
+      <section class="grid-2">
+        <article class="panel">
+          <div class="section-head">
+            <h2>声母（Initials）</h2>
+            <p class="meta">点击喇叭可听示例词读音</p>
+          </div>
+          <div id="initialList" class="item-grid"></div>
+        </article>
+        <article class="panel">
+          <div class="section-head">
+            <h2>韵母（Finals）</h2>
+            <p class="meta">重点区分复韵母与鼻韵母</p>
+          </div>
+          <div id="finalList" class="item-grid"></div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>声调教学</h2>
+          <p class="meta">一声平、二声扬、三声拐弯、四声降</p>
+        </div>
+        <div id="toneCards" class="tone-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>拼读训练</h2>
+          <p class="meta">选择声母 + 韵母 + 声调，自动生成带调拼音</p>
+        </div>
+
+        <div class="compose-grid">
+          <label for="composeInitial">声母</label>
+          <select id="composeInitial"></select>
+          <label for="composeFinal">韵母</label>
+          <select id="composeFinal"></select>
+          <label for="composeTone">声调</label>
+          <select id="composeTone">
+            <option value="1">第一声</option>
+            <option value="2">第二声</option>
+            <option value="3">第三声</option>
+            <option value="4">第四声</option>
+            <option value="5">轻声</option>
+          </select>
+        </div>
+
+        <div class="result-box">
+          <div>
+            <p class="label">音节结果</p>
+            <p id="syllableResult" class="syllable">-</p>
+          </div>
+          <div>
+            <p class="label">示例汉字</p>
+            <p id="syllableExample" class="example">-</p>
+          </div>
+          <div class="result-actions">
+            <button id="generateBtn" type="button">生成音节</button>
+            <button id="speakBtn" type="button" class="ghost">播放示例</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./pinyin.js" defer></script>
+  </body>
+</html>

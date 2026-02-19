@@ -114,6 +114,19 @@ select {
   align-items: center;
 }
 
+.toggle-row {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.toggle-row input {
+  transform: scale(1.05);
+}
+
 button {
   background: var(--brand);
   color: #fff;
@@ -178,6 +191,21 @@ button {
   font-family: "KaiTi", "STKaiti", serif;
 }
 
+.hz-ruby {
+  ruby-position: over;
+}
+
+.hz-ruby rt {
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.char-card .char .hz-ruby rt {
+  font-size: 10px;
+}
+
 .char-card .thumb {
   width: 28px;
   height: 28px;
@@ -221,6 +249,10 @@ button {
   font-size: 42px;
   line-height: 1;
   font-family: "KaiTi", "STKaiti", serif;
+}
+
+.big-char .hz-ruby rt {
+  font-size: 12px;
 }
 
 .pinyin {
@@ -306,6 +338,10 @@ button {
 
 .word-list .word {
   font-weight: 700;
+}
+
+.annotated-text .hz-ruby rt {
+  font-size: 10px;
 }
 
 .writer-target {

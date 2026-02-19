@@ -1,6 +1,7 @@
 const refs = {
   ageSelect: document.getElementById("ageSelect"),
   levelSelect: document.getElementById("levelSelect"),
+  pinyinToggle: document.getElementById("pinyinToggle"),
   generateBtn: document.getElementById("generateBtn"),
   worksheetLink: document.getElementById("worksheetLink"),
   resultMeta: document.getElementById("resultMeta"),
@@ -27,6 +28,7 @@ const state = {
   writer: null,
   loopMode: false,
   strokeReqId: 0,
+  showPinyin: true,
 };
 
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
@@ -53,6 +55,22 @@ function escapeHtml(text) {
     };
     return map[char];
   });
+}
+
+function buildRubyHtml(char, pinyin) {
+  return `<ruby class="hz-ruby"><rb>${escapeHtml(char)}</rb><rt>${escapeHtml(
+    pinyin
+  )}</rt></ruby>`;
+}
+
+function annotateByTarget(text, targetChar, pinyin) {
+  const raw = String(text ?? "");
+  if (!state.showPinyin || !targetChar || !pinyin) {
+    return escapeHtml(raw);
+  }
+  return [...raw]
+    .map((char) => (char === targetChar ? buildRubyHtml(char, pinyin) : escapeHtml(char)))
+    .join("");
 }
 
 function buildPictographFallback(char) {
@@ -101,6 +119,7 @@ function renderCharList(list) {
   list.forEach((item) => {
     const card = document.createElement("button");
     card.type = "button";
+    card.dataset.char = item.char;
     card.className = `char-card${item.char === state.selectedChar ? " active" : ""}`;
 
     const thumb = document.createElement("img");
@@ -111,7 +130,9 @@ function renderCharList(list) {
 
     const charNode = document.createElement("div");
     charNode.className = "char";
-    charNode.textContent = item.char;
+    charNode.innerHTML = state.showPinyin
+      ? buildRubyHtml(item.char, item.pinyin)
+      : escapeHtml(item.char);
 
     const mini = document.createElement("div");
     mini.className = "mini";
@@ -127,8 +148,7 @@ function renderCharList(list) {
 
 function updateActiveCard() {
   refs.charList.querySelectorAll(".char-card").forEach((card) => {
-    const text = card.querySelector(".char")?.textContent;
-    card.classList.toggle("active", text === state.selectedChar);
+    card.classList.toggle("active", card.dataset.char === state.selectedChar);
   });
 }
 
@@ -136,7 +156,7 @@ function setStrokeMeta(text) {
   refs.strokeMeta.textContent = text;
 }
 
-function renderWords(words) {
+function renderWords(words, targetChar, targetPinyin) {
   refs.wordList.innerHTML = "";
   if (!words.length) {
     refs.wordList.innerHTML = "<li>暂无词组</li>";
@@ -144,7 +164,11 @@ function renderWords(words) {
   }
   words.forEach((item) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="word">${escapeHtml(item.word)}</span>：${escapeHtml(item.meaning)}`;
+    li.innerHTML = `<span class="word annotated-text">${annotateByTarget(
+      item.word,
+      targetChar,
+      targetPinyin
+    )}</span>：${escapeHtml(item.meaning)}`;
     refs.wordList.appendChild(li);
   });
 }
@@ -166,7 +190,7 @@ function renderPictograph(item) {
   }
 }
 
-function renderIdioms(idioms) {
+function renderIdioms(idioms, targetChar, targetPinyin) {
   refs.idiomList.innerHTML = "";
   if (!idioms.length) {
     refs.idiomList.innerHTML = `<p class="empty">该字暂无收录成语故事，可继续选择其他汉字。</p>`;
@@ -176,7 +200,11 @@ function renderIdioms(idioms) {
     const article = document.createElement("article");
     article.className = "idiom";
     article.innerHTML = `
-      <h3>${escapeHtml(item.name)}</h3>
+      <h3 class="annotated-text">${annotateByTarget(
+        item.name,
+        targetChar,
+        targetPinyin
+      )}</h3>
       <p>释义：${escapeHtml(item.meaning)}</p>
       <p class="story">故事：${escapeHtml(item.story)}</p>
     `;
@@ -257,13 +285,19 @@ function createWriter(char) {
   }
 }
 
-function renderCharDetail(item) {
-  refs.detailChar.textContent = item.char;
-  refs.detailPinyin.textContent = item.pinyin;
+function renderDetailText(item) {
+  refs.detailChar.innerHTML = state.showPinyin
+    ? buildRubyHtml(item.char, item.pinyin)
+    : escapeHtml(item.char);
+  refs.detailPinyin.textContent = `拼音：${item.pinyin}`;
   refs.detailMeaning.textContent = item.meaning;
   renderPictograph(item);
-  renderWords(item.words || []);
-  renderIdioms(item.idioms || []);
+  renderWords(item.words || [], item.char, item.pinyin);
+  renderIdioms(item.idioms || [], item.char, item.pinyin);
+}
+
+function renderCharDetail(item) {
+  renderDetailText(item);
   createWriter(item.char);
   loadStrokeData(item.char);
 }
@@ -325,6 +359,15 @@ function filterLibrary() {
 
 function bindEvents() {
   refs.generateBtn.addEventListener("click", filterLibrary);
+  refs.pinyinToggle?.addEventListener("change", () => {
+    state.showPinyin = refs.pinyinToggle.checked;
+    renderCharList(state.filtered);
+    updateActiveCard();
+    const item = state.filtered.find((entry) => entry.char === state.selectedChar);
+    if (item) {
+      renderDetailText(item);
+    }
+  });
   refs.animateBtn.addEventListener("click", () => {
     if (!state.writer) {
       return;
@@ -370,6 +413,7 @@ function bootstrap() {
   }
   refs.ageSelect.value = "9-12";
   refs.levelSelect.value = "HSK2";
+  state.showPinyin = refs.pinyinToggle ? refs.pinyinToggle.checked : true;
   initSelectByQuery();
   bindEvents();
   filterLibrary();
