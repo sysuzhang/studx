@@ -27,7 +27,12 @@ const refs = {
   addWrongToCartBtn: document.getElementById("addWrongToCartBtn"),
   openWorksheetLink: document.getElementById("openWorksheetLink"),
   sessionSummary: document.getElementById("sessionSummary"),
+  seasonTypeSelect: document.getElementById("seasonTypeSelect"),
+  seasonLabel: document.getElementById("seasonLabel"),
+  seasonStats: document.getElementById("seasonStats"),
+  seasonTitles: document.getElementById("seasonTitles"),
   historyBody: document.getElementById("historyBody"),
+  leaderboardRange: document.getElementById("leaderboardRange"),
   leaderboardBody: document.getElementById("leaderboardBody"),
   missionTitle: document.getElementById("missionTitle"),
   missionDesc: document.getElementById("missionDesc"),
@@ -125,6 +130,198 @@ function formatTime(ts) {
   const h = `${date.getHours()}`.padStart(2, "0");
   const min = `${date.getMinutes()}`.padStart(2, "0");
   return `${h}:${min}`;
+}
+
+function formatDateTime(ts) {
+  const date = new Date(ts);
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  const h = `${date.getHours()}`.padStart(2, "0");
+  const min = `${date.getMinutes()}`.padStart(2, "0");
+  return `${m}-${d} ${h}:${min}`;
+}
+
+function startOfDay(ts) {
+  const date = new Date(ts);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function startOfWeek(ts) {
+  const date = new Date(ts);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date.getTime();
+}
+
+function startOfMonth(ts) {
+  const date = new Date(ts);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(1);
+  return date.getTime();
+}
+
+function formatMonthDay(ts) {
+  const date = new Date(ts);
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${m}.${d}`;
+}
+
+function getRecordTitles(record) {
+  const titles = [];
+  const maxCombo = Number(record?.maxCombo) || 0;
+  const bossDefeated = Number(record?.bossDefeated) || 0;
+  const accuracy = Number(record?.accuracy) || 0;
+  const total = Number(record?.total) || 0;
+  const score = Number(record?.score) || 0;
+  if (Array.isArray(record?.titleTags) && record.titleTags.length) {
+    return record.titleTags.map((item) => String(item)).filter(Boolean);
+  }
+  if (maxCombo >= 12) {
+    titles.push("连胜王");
+  }
+  if (bossDefeated >= 2) {
+    titles.push("Boss猎手");
+  }
+  if (accuracy >= 95 && total >= 12) {
+    titles.push("精准之眼");
+  }
+  if (score >= 1000) {
+    titles.push("冲榜宗师");
+  }
+  return titles;
+}
+
+function renderTitleBadges(target, titles, emptyText) {
+  if (!target) {
+    return;
+  }
+  target.innerHTML = "";
+  const list = (titles || []).filter(Boolean);
+  if (!list.length) {
+    target.innerHTML = `<span class="title-chip empty">${emptyText || "暂无称号"}</span>`;
+    return;
+  }
+  list.forEach((title) => {
+    const chip = document.createElement("span");
+    chip.className = "title-chip";
+    chip.textContent = title;
+    target.appendChild(chip);
+  });
+}
+
+function getAllTypingRecords() {
+  return store && typeof store.getTypingGameRecords === "function" ? store.getTypingGameRecords() : [];
+}
+
+function filterRecordsByRange(records, range) {
+  const now = Date.now();
+  if (range === "today") {
+    const start = startOfDay(now);
+    return records.filter((item) => Number(item?.ts) >= start);
+  }
+  if (range === "week") {
+    const start = startOfWeek(now);
+    return records.filter((item) => Number(item?.ts) >= start);
+  }
+  return records;
+}
+
+function getSeasonWindow(type, nowTs) {
+  const now = Number.isFinite(nowTs) ? nowTs : Date.now();
+  if (type === "monthly") {
+    const start = startOfMonth(now);
+    const next = new Date(start);
+    next.setMonth(next.getMonth() + 1);
+    return {
+      type: "monthly",
+      start,
+      end: next.getTime(),
+      label: `${new Date(start).getFullYear()} 年 ${`${new Date(start).getMonth() + 1}`.padStart(2, "0")} 月赛`,
+    };
+  }
+  const start = startOfWeek(now);
+  const end = start + 7 * 24 * 3600 * 1000;
+  return {
+    type: "weekly",
+    start,
+    end,
+    label: `周赛 ${formatMonthDay(start)} - ${formatMonthDay(end - 1)}`,
+  };
+}
+
+function filterRecordsBySeason(records, seasonType) {
+  const windowInfo = getSeasonWindow(seasonType, Date.now());
+  return {
+    windowInfo,
+    rows: records.filter((item) => {
+      const ts = Number(item?.ts) || 0;
+      return ts >= windowInfo.start && ts < windowInfo.end;
+    }),
+  };
+}
+
+function computeSeasonStats(records) {
+  const games = records.length;
+  if (!games) {
+    return {
+      games: 0,
+      bestScore: 0,
+      avgScore: 0,
+      avgAccuracy: 0,
+      maxCombo: 0,
+      bossKills: 0,
+    };
+  }
+  const bestScore = records.reduce((max, item) => Math.max(max, Number(item?.score) || 0), 0);
+  const sumScore = records.reduce((sum, item) => sum + (Number(item?.score) || 0), 0);
+  const sumAcc = records.reduce((sum, item) => sum + (Number(item?.accuracy) || 0), 0);
+  const maxCombo = records.reduce((max, item) => Math.max(max, Number(item?.maxCombo) || 0), 0);
+  const bossKills = records.reduce((sum, item) => sum + (Number(item?.bossDefeated) || 0), 0);
+  return {
+    games,
+    bestScore,
+    avgScore: Math.round(sumScore / games),
+    avgAccuracy: Math.round(sumAcc / games),
+    maxCombo,
+    bossKills,
+  };
+}
+
+function computeSeasonTitles(stats, seasonType) {
+  const titles = [];
+  if (stats.maxCombo >= 15) {
+    titles.push("连胜王");
+  }
+  if (stats.bossKills >= 5) {
+    titles.push("Boss猎手");
+  }
+  if (stats.avgAccuracy >= 88 && stats.games >= 3) {
+    titles.push("稳定输出");
+  }
+  if (stats.bestScore >= 1100) {
+    titles.push(seasonType === "monthly" ? "月赛王者" : "周赛王者");
+  }
+  if (!titles.length && stats.games > 0) {
+    titles.push("赛季新星");
+  }
+  return titles;
+}
+
+function renderSeasonPanel() {
+  if (!refs.seasonLabel || !refs.seasonStats || !refs.seasonTitles) {
+    return;
+  }
+  const seasonType = refs.seasonTypeSelect?.value === "monthly" ? "monthly" : "weekly";
+  const records = getAllTypingRecords();
+  const season = filterRecordsBySeason(records, seasonType);
+  const stats = computeSeasonStats(season.rows);
+  refs.seasonLabel.textContent = `当前赛季：${season.windowInfo.label}`;
+  refs.seasonStats.textContent = `场次 ${stats.games}｜最高分 ${stats.bestScore}｜均分 ${stats.avgScore}｜平均命中率 ${stats.avgAccuracy}%｜Boss 击破 ${stats.bossKills}`;
+  renderTitleBadges(refs.seasonTitles, computeSeasonTitles(stats, seasonType), "本赛季称号待解锁");
 }
 
 function sanitizeTheme(theme) {
@@ -649,10 +846,13 @@ function endGame(reason) {
     correct: state.correct,
     total: state.total,
     maxCombo: state.maxCombo,
+    bossDefeated: state.bossDefeated,
     duration: state.duration,
     wrongChars: [...state.wrongChars],
     source: "typing_game",
   };
+  const titleTags = getRecordTitles(record);
+  record.titleTags = titleTags;
   if (store && typeof store.appendTypingGameRecord === "function") {
     store.appendTypingGameRecord(record);
   }
@@ -666,6 +866,7 @@ function endGame(reason) {
     <p>Boss 击破数：${state.bossDefeated}</p>
     <p>词组正确数：${state.wordCorrect}</p>
     <p>趣味任务：${state.mission?.completed ? "已完成" : "未完成"}</p>
+    <p>本局称号：${titleTags.length ? titleTags.join("、") : "未解锁"}</p>
     <p>错题字：${[...state.wrongChars].join("") || "无"}</p>
   `;
   renderMissionPanel();
@@ -673,6 +874,7 @@ function endGame(reason) {
   updateWorksheetLinkByWrong();
   renderHistory();
   renderLeaderboard();
+  renderSeasonPanel();
 }
 
 function startGame() {
@@ -757,23 +959,31 @@ function renderHistory() {
 
 function renderLeaderboard() {
   refs.leaderboardBody.innerHTML = "";
-  const records =
-    store && typeof store.getTypingGameRecords === "function" ? store.getTypingGameRecords() : [];
-  const ranked = [...records]
+  const records = getAllTypingRecords();
+  const range = refs.leaderboardRange?.value || "history";
+  const filtered = filterRecordsByRange(records, range);
+  const ranked = [...filtered]
     .sort((a, b) => (b.score || 0) - (a.score || 0) || (b.accuracy || 0) - (a.accuracy || 0))
     .slice(0, 10);
   if (!ranked.length) {
-    refs.leaderboardBody.innerHTML = `<tr><td colspan="5" class="empty">暂无排行数据。</td></tr>`;
+    const labelMap = {
+      today: "今日",
+      week: "本周",
+      history: "历史",
+    };
+    refs.leaderboardBody.innerHTML = `<tr><td colspan="6" class="empty">${labelMap[range] || "当前范围"}暂无排行数据。</td></tr>`;
     return;
   }
   ranked.forEach((item, index) => {
+    const titles = getRecordTitles(item);
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>#${index + 1}</td>
-      <td>${formatTime(item.ts)}</td>
+      <td>${range === "history" ? formatDateTime(item.ts) : formatTime(item.ts)}</td>
       <td>${item.mode === "hanzi" ? "汉字" : "拼音"}</td>
       <td>${item.score || 0}</td>
       <td>${item.accuracy || 0}%</td>
+      <td>${titles.length ? titles.join("、") : "—"}</td>
     `;
     refs.leaderboardBody.appendChild(row);
   });
@@ -802,11 +1012,19 @@ function bindEvents() {
   refs.themeSelect?.addEventListener("change", () => {
     applyTheme(refs.themeSelect.value, true);
   });
+  refs.leaderboardRange?.addEventListener("change", renderLeaderboard);
+  refs.seasonTypeSelect?.addEventListener("change", renderSeasonPanel);
   window.addEventListener("focus", loadTheme);
 }
 
 function bootstrap() {
   loadTheme();
+  if (refs.leaderboardRange) {
+    refs.leaderboardRange.value = "history";
+  }
+  if (refs.seasonTypeSelect) {
+    refs.seasonTypeSelect.value = "weekly";
+  }
   bindEvents();
   refreshScoreBoard();
   refs.promptType.textContent = "题型：待开始";
@@ -816,6 +1034,7 @@ function bootstrap() {
   renderBossPanel();
   renderHistory();
   renderLeaderboard();
+  renderSeasonPanel();
   renderQueueStream();
   updateWorksheetLinkByWrong();
 }

@@ -386,6 +386,65 @@ button.ghost {
   color: #334155;
 }
 
+.season-box {
+  border: 1px solid #dce8fb;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fbff;
+  display: grid;
+  gap: 8px;
+}
+
+.season-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.season-tools label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.season-tools select {
+  min-width: 120px;
+}
+
+.rank-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.rank-tools label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.title-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.title-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfd7ff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.title-chip.empty {
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
 h3 {
   margin: 12px 0 8px;
   font-size: 16px;

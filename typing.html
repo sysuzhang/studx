@@ -142,6 +142,19 @@
           </div>
           <h3>本局摘要</h3>
           <div id="sessionSummary" class="summary-box"></div>
+          <h3>赛季中心</h3>
+          <div class="season-box">
+            <div class="season-tools">
+              <label for="seasonTypeSelect">赛季类型</label>
+              <select id="seasonTypeSelect">
+                <option value="weekly">周赛</option>
+                <option value="monthly">月赛</option>
+              </select>
+            </div>
+            <p id="seasonLabel" class="meta">当前赛季：-</p>
+            <p id="seasonStats" class="meta">赛季数据：-</p>
+            <div id="seasonTitles" class="title-badges"></div>
+          </div>
           <h3>近期战绩</h3>
           <div class="history-wrap">
             <table class="history-table">
@@ -158,6 +171,14 @@
             </table>
           </div>
           <h3>本地排行榜</h3>
+          <div class="rank-tools">
+            <label for="leaderboardRange">榜单范围</label>
+            <select id="leaderboardRange">
+              <option value="today">今日</option>
+              <option value="week">本周</option>
+              <option value="history" selected>历史</option>
+            </select>
+          </div>
           <div class="history-wrap">
             <table class="history-table">
               <thead>
@@ -167,6 +188,7 @@
                   <th>模式</th>
                   <th>分数</th>
                   <th>命中率</th>
+                  <th>称号</th>
                 </tr>
               </thead>
               <tbody id="leaderboardBody"></tbody>

@@ -533,6 +533,9 @@
 
   function appendTypingGameRecord(record) {
     const rows = getTypingGameRecords();
+    const titleTags = Array.isArray(record?.titleTags)
+      ? record.titleTags.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 8)
+      : [];
     const item = {
       ts: Date.now(),
       mode: record?.mode || "hanzi",
@@ -541,8 +544,10 @@
       correct: Number.isFinite(record?.correct) ? record.correct : 0,
       total: Number.isFinite(record?.total) ? record.total : 0,
       maxCombo: Number.isFinite(record?.maxCombo) ? record.maxCombo : 0,
+      bossDefeated: Number.isFinite(record?.bossDefeated) ? record.bossDefeated : 0,
       duration: Number.isFinite(record?.duration) ? record.duration : 0,
       wrongChars: Array.isArray(record?.wrongChars) ? toHanCharArray(record.wrongChars) : [],
+      titleTags,
       source: record?.source || "typing",
     };
     rows.push(item);
@@ -554,6 +559,7 @@
       accuracy: item.accuracy,
       correct: item.correct,
       total: item.total,
+      bossDefeated: item.bossDefeated,
       source: item.source,
     });
     return item;
