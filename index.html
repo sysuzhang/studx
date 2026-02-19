@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>汉字字帖打印与笔顺演示</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header no-print">
+      <h1>汉字字帖打印网站</h1>
+      <p>支持自定义字帖生成、A4 打印、汉字笔顺动画演示与笔画顺序查看。</p>
+    </header>
+
+    <main class="layout">
+      <aside class="panel controls no-print">
+        <section>
+          <h2>1) 输入练习文字</h2>
+          <textarea id="textInput" rows="5" placeholder="请输入要练习的汉字，例如：永和春风"></textarea>
+          <p class="hint">将自动过滤非汉字字符。</p>
+        </section>
+
+        <section>
+          <h2>2) 字帖配置</h2>
+          <div class="form-grid">
+            <label for="gridType">格子类型</label>
+            <select id="gridType">
+              <option value="tian">田字格</option>
+              <option value="mi">米字格</option>
+              <option value="hui">回宫格</option>
+            </select>
+
+            <label for="repeatCount">每字练习格数</label>
+            <input id="repeatCount" type="number" min="2" max="24" value="10" />
+
+            <label for="columns">每行格子数</label>
+            <input id="columns" type="number" min="4" max="20" value="10" />
+
+            <label for="cellSize">格子尺寸 (px)</label>
+            <input id="cellSize" type="range" min="40" max="90" value="60" />
+
+            <label for="traceMode">练习模式</label>
+            <select id="traceMode">
+              <option value="trace">描红</option>
+              <option value="blank">空白临写</option>
+            </select>
+
+            <label for="showGuide">显示参考字</label>
+            <input id="showGuide" type="checkbox" checked />
+          </div>
+        </section>
+
+        <section class="actions">
+          <button id="generateBtn" type="button">生成字帖</button>
+          <button id="printBtn" type="button">打印字帖</button>
+          <button id="clearBtn" type="button" class="ghost">清空</button>
+        </section>
+
+        <section>
+          <h2>3) 选择演示汉字</h2>
+          <div id="charPicker" class="char-picker"></div>
+        </section>
+      </aside>
+
+      <section class="content">
+        <article class="panel stroke-panel no-print">
+          <div class="stroke-header">
+            <h2>汉字笔顺演示</h2>
+            <div class="stroke-char">
+              当前汉字：<strong id="currentChar">-</strong>
+            </div>
+          </div>
+
+          <div class="stroke-body">
+            <div id="writerTarget" class="writer-target" aria-label="笔顺演示区域"></div>
+            <div class="stroke-side">
+              <div class="stroke-tools">
+                <button id="animateBtn" type="button">播放笔顺</button>
+                <button id="loopBtn" type="button">循环演示：关</button>
+                <button id="quizBtn" type="button" class="ghost">手写练习</button>
+              </div>
+              <p id="strokeMeta" class="hint">请选择一个汉字查看笔画顺序。</p>
+              <ol id="strokeOrderList" class="stroke-order-list"></ol>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel preview-panel">
+          <div class="preview-head no-print">
+            <h2>字帖预览（打印区）</h2>
+            <p class="hint">打印时建议勾选“背景图形”。</p>
+          </div>
+          <div id="worksheetPages" class="worksheet-pages"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
