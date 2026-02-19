@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>汉字总览 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./overview.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html" class="active">汉字总览</a>
+          <a href="./worksheet.html">字帖工坊</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>全体汉字一览表</h1>
+        <p>统一查看字库全貌、学习覆盖情况与每个汉字的详细信息。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel filters">
+        <h2>筛选与排序</h2>
+        <div class="filter-grid">
+          <label for="searchInput">关键词</label>
+          <input id="searchInput" type="text" placeholder="按汉字 / 拼音 / 释义 / 词组 / 成语搜索" />
+
+          <label for="ageFilter">年龄段</label>
+          <select id="ageFilter"></select>
+
+          <label for="levelFilter">汉语级别</label>
+          <select id="levelFilter"></select>
+
+          <label for="sortBy">排序方式</label>
+          <select id="sortBy">
+            <option value="char">按汉字</option>
+            <option value="pinyin">按拼音</option>
+            <option value="wordCount">按词组数（多到少）</option>
+            <option value="idiomCount">按成语数（多到少）</option>
+          </select>
+        </div>
+        <div class="toggle-row">
+          <label><input id="withIdiomOnly" type="checkbox" /> 仅看含成语汉字</label>
+          <label><input id="withPictographOnly" type="checkbox" /> 仅看含象形图汉字</label>
+          <label><input id="showLearnedOnly" type="checkbox" /> 仅看学习日历已打卡汉字</label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>总体统计</h2>
+        <div id="statsGrid" class="stats-grid"></div>
+      </section>
+
+      <section class="layout">
+        <article class="panel table-panel">
+          <div class="section-head">
+            <h2>汉字总览表</h2>
+            <p id="tableMeta" class="meta">加载中...</p>
+          </div>
+          <div class="table-wrap">
+            <table class="overview-table">
+              <thead>
+                <tr>
+                  <th>汉字</th>
+                  <th>拼音</th>
+                  <th>汉语级别</th>
+                  <th>年龄段</th>
+                  <th>词组</th>
+                  <th>成语</th>
+                  <th>象形图</th>
+                  <th>学习状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel detail-panel">
+          <h2>汉字详情</h2>
+          <div id="detailBox" class="detail-box"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="./hanzi-data.js"></script>
+    <script src="./overview.js" defer></script>
+  </body>
+</html>

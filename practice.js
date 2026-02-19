@@ -32,6 +32,7 @@ const refs = {
 const state = {
   filtered: [],
   selectedChar: "",
+  queryChar: "",
   writer: null,
   loopMode: false,
   strokeReqId: 0,
@@ -614,6 +615,12 @@ function filterLibrary() {
   }
 
   const prefer = result.find((item) => item.char === state.selectedChar) || result[0];
+  const queryPreferred = state.queryChar ? result.find((item) => item.char === state.queryChar) : null;
+  if (queryPreferred) {
+    state.queryChar = "";
+    selectChar(queryPreferred.char);
+    return;
+  }
   selectChar(prefer.char);
 }
 
@@ -663,11 +670,15 @@ function initSelectByQuery() {
   const params = new URLSearchParams(window.location.search);
   const age = params.get("age");
   const level = params.get("level");
+  const char = params.get("char");
   if (age && dimensions.ageGroups.some((item) => item.value === age)) {
     refs.ageSelect.value = age;
   }
   if (level && dimensions.chineseLevels.some((item) => item.value === level)) {
     refs.levelSelect.value = level;
+  }
+  if (char && library.some((item) => item.char === char)) {
+    state.queryChar = char;
   }
 }
 
