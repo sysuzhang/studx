@@ -112,6 +112,10 @@ textarea {
   align-items: center;
 }
 
+.mode-field {
+  margin-bottom: 8px;
+}
+
 .form-grid label {
   font-size: 13px;
   color: #334155;
@@ -430,6 +434,16 @@ button.ghost {
 
 .cell-char.hidden {
   display: none;
+}
+
+.cell-char.math {
+  font-family: "Noto Sans", "Arial", sans-serif;
+  font-size: calc(var(--cell-size) * 0.5);
+  font-weight: 700;
+}
+
+.hidden {
+  display: none !important;
 }
 
 @media (max-width: 1180px) {

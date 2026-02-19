@@ -23,19 +23,26 @@
         <a href="./worksheet.html" class="active">字帖工坊</a>
         <a href="./user.html">用户中心</a>
       </div>
-      <h1>汉字字帖打印工坊</h1>
-      <p>支持自定义字帖生成、A4 打印、汉字笔顺动画演示与笔画顺序查看。</p>
+      <h1 id="pageTitle">汉字字帖打印工坊</h1>
+      <p id="pageDesc">支持自定义字帖生成、A4 打印、汉字笔顺动画演示与笔画顺序查看。</p>
     </header>
 
     <main class="layout">
       <aside class="panel controls no-print">
         <section>
           <h2>1) 输入练习文字</h2>
+          <div class="form-grid mode-field">
+            <label for="practiceModeSelect">字帖类型</label>
+            <select id="practiceModeSelect">
+              <option value="hanzi">汉字字帖</option>
+              <option value="math">数学数字字帖</option>
+            </select>
+          </div>
           <textarea id="textInput" rows="5" placeholder="请输入要练习的汉字，例如：永和春风"></textarea>
-          <p class="hint">将自动过滤非汉字字符。</p>
+          <p id="textInputHint" class="hint">将自动过滤非汉字字符。</p>
         </section>
 
-        <section class="no-print">
+        <section id="cartSection" class="no-print">
           <h2>1.5) 字帖收藏字</h2>
           <p id="cartMeta" class="hint">已收藏 0 个汉字</p>
           <div id="cartChars" class="char-picker"></div>
@@ -85,14 +92,14 @@
           当前套餐：基础版；打印配额：已使用 0/2 次，剩余：2 次。<a href="./pricing.html">查看订阅方案</a>
         </p>
 
-        <section>
-          <h2>3) 选择演示汉字</h2>
+        <section id="charPickerSection">
+          <h2 id="charPickerTitle">3) 选择演示汉字</h2>
           <div id="charPicker" class="char-picker"></div>
         </section>
       </aside>
 
       <section class="content">
-        <article class="panel stroke-panel no-print">
+        <article id="strokePanel" class="panel stroke-panel no-print">
           <div class="stroke-header">
             <h2>汉字笔顺演示</h2>
             <div class="stroke-char">

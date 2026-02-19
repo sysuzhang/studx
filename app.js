@@ -1,5 +1,10 @@
 const refs = {
+  pageTitle: document.getElementById("pageTitle"),
+  pageDesc: document.getElementById("pageDesc"),
+  practiceModeSelect: document.getElementById("practiceModeSelect"),
   textInput: document.getElementById("textInput"),
+  textInputHint: document.getElementById("textInputHint"),
+  cartSection: document.getElementById("cartSection"),
   cartMeta: document.getElementById("cartMeta"),
   cartChars: document.getElementById("cartChars"),
   useCartBtn: document.getElementById("useCartBtn"),
@@ -15,6 +20,8 @@ const refs = {
   printBtn: document.getElementById("printBtn"),
   clearBtn: document.getElementById("clearBtn"),
   billingTip: document.getElementById("billingTip"),
+  charPickerSection: document.getElementById("charPickerSection"),
+  charPickerTitle: document.getElementById("charPickerTitle"),
   charPicker: document.getElementById("charPicker"),
   worksheetPages: document.getElementById("worksheetPages"),
   currentChar: document.getElementById("currentChar"),
@@ -29,11 +36,13 @@ const refs = {
   followResult: document.getElementById("followResult"),
   followCompare: document.getElementById("followCompare"),
   strokeOrderList: document.getElementById("strokeOrderList"),
+  strokePanel: document.getElementById("strokePanel"),
 };
 
 const state = {
   chars: [],
   selectedChar: "",
+  practiceMode: "hanzi",
   writer: null,
   loopMode: false,
   strokeReqId: 0,
@@ -50,6 +59,36 @@ try {
 } catch (error) {
   hanRegex = /[\u3400-\u9fff\uf900-\ufaff]/;
 }
+
+const MATH_CHAR_MAP = {
+  "０": "0",
+  "１": "1",
+  "２": "2",
+  "３": "3",
+  "４": "4",
+  "５": "5",
+  "６": "6",
+  "７": "7",
+  "８": "8",
+  "９": "9",
+  "＋": "+",
+  "－": "-",
+  "−": "-",
+  "×": "×",
+  "✕": "×",
+  x: "×",
+  X: "×",
+  "*": "×",
+  "／": "÷",
+  "/": "÷",
+  "÷": "÷",
+  "＝": "=",
+  "（": "(",
+  "）": ")",
+  "％": "%",
+};
+
+const MATH_ALLOWED_SET = new Set(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "×", "÷", "=", "(", ")", ".", "%"]);
 
 function refreshSpeechVoice() {
   if (!("speechSynthesis" in window)) {
@@ -100,6 +139,66 @@ function resetFollowPanel(char) {
     : "对比结果：当前浏览器暂不支持语音识别。";
   if (refs.followBtn) {
     refs.followBtn.textContent = "开始跟读";
+  }
+}
+
+function isHanziMode() {
+  return state.practiceMode !== "math";
+}
+
+function normalizeMathChar(char) {
+  if (Object.prototype.hasOwnProperty.call(MATH_CHAR_MAP, char)) {
+    return MATH_CHAR_MAP[char];
+  }
+  return char;
+}
+
+function extractMathChars(text) {
+  const chars = [];
+  for (const rawChar of String(text ?? "")) {
+    const char = normalizeMathChar(rawChar);
+    if (MATH_ALLOWED_SET.has(char)) {
+      chars.push(char);
+    }
+  }
+  return chars;
+}
+
+function extractInputChars(text) {
+  return isHanziMode() ? extractChineseChars(text) : extractMathChars(text);
+}
+
+function refreshPracticeModeUI() {
+  const hanziMode = isHanziMode();
+  if (refs.pageTitle) {
+    refs.pageTitle.textContent = hanziMode ? "汉字字帖打印工坊" : "数学数字字帖工坊";
+  }
+  if (refs.pageDesc) {
+    refs.pageDesc.textContent = hanziMode
+      ? "支持自定义字帖生成、A4 打印、汉字笔顺动画演示与笔画顺序查看。"
+      : "支持数字与运算符字帖生成、A4 打印，适合数学符号与算式书写练习。";
+  }
+  if (refs.textInput) {
+    refs.textInput.placeholder = hanziMode
+      ? "请输入要练习的汉字，例如：永和春风"
+      : "请输入数学数字/算式，例如：1+2=3 (8÷2=4)";
+  }
+  if (refs.textInputHint) {
+    refs.textInputHint.textContent = hanziMode
+      ? "将自动过滤非汉字字符。"
+      : "将自动过滤非数字与数学运算符（支持 0-9、+-×÷=()%.）。";
+  }
+  if (refs.cartSection) {
+    refs.cartSection.classList.toggle("hidden", !hanziMode);
+  }
+  if (refs.charPickerSection) {
+    refs.charPickerSection.classList.toggle("hidden", !hanziMode);
+  }
+  if (refs.charPickerTitle) {
+    refs.charPickerTitle.textContent = hanziMode ? "3) 选择演示汉字" : "3) 选择演示内容";
+  }
+  if (refs.strokePanel) {
+    refs.strokePanel.classList.toggle("hidden", !hanziMode);
   }
 }
 
@@ -157,7 +256,7 @@ function refreshBillingTip() {
 }
 
 function addCharsToCart(chars, source) {
-  if (!store || !chars) {
+  if (!isHanziMode() || !store || !chars) {
     return;
   }
   store.addWorksheetChars(chars, source || "worksheet");
@@ -310,10 +409,13 @@ function buildCells(chars, config) {
 function renderWorksheet(chars) {
   refs.worksheetPages.innerHTML = "";
   const config = getWorksheetConfig();
+  const hanziMode = isHanziMode();
 
   const cells = buildCells(chars, config);
   if (cells.length === 0) {
-    refs.worksheetPages.innerHTML = `<div class="hint">请输入至少一个汉字以生成字帖。</div>`;
+    refs.worksheetPages.innerHTML = `<div class="hint">${
+      hanziMode ? "请输入至少一个汉字以生成字帖。" : "请输入至少一个数字或数学符号以生成字帖。"
+    }</div>`;
     return;
   }
 
@@ -328,7 +430,7 @@ function renderWorksheet(chars) {
     const header = document.createElement("div");
     header.className = "worksheet-header";
     header.innerHTML = `
-      <span>练字内容：${chars.join("")}</span>
+      <span>${hanziMode ? "练字内容" : "练习内容"}：${chars.join("")}</span>
       <span>第 ${index + 1} / ${pages.length} 页</span>
     `;
 
@@ -342,7 +444,7 @@ function renderWorksheet(chars) {
       cell.className = `grid-cell ${config.gridType}`;
 
       const charNode = document.createElement("span");
-      charNode.className = `cell-char ${item.mode}`;
+      charNode.className = `cell-char ${item.mode} ${hanziMode ? "hanzi" : "math"}`;
       charNode.textContent = item.char;
 
       cell.appendChild(charNode);
@@ -357,6 +459,10 @@ function renderWorksheet(chars) {
 
 function renderCharPicker(chars) {
   refs.charPicker.innerHTML = "";
+  if (!isHanziMode()) {
+    refs.charPicker.innerHTML = `<span class="hint">数学数字模式下无需选择笔顺演示汉字。</span>`;
+    return;
+  }
   const unique = [...new Set(chars)];
   unique.forEach((char) => {
     const button = document.createElement("button");
@@ -480,6 +586,9 @@ function updatePickerActive(char) {
 }
 
 function selectChar(char) {
+  if (!isHanziMode()) {
+    return;
+  }
   stopFollowReading();
   state.selectedChar = char;
   state.loopMode = false;
@@ -492,11 +601,22 @@ function selectChar(char) {
 }
 
 function regenerate() {
-  const chars = extractChineseChars(refs.textInput.value.trim());
+  const chars = extractInputChars(refs.textInput.value.trim());
   state.chars = chars;
 
   renderWorksheet(chars);
   renderCharPicker(chars);
+
+  if (!isHanziMode()) {
+    stopFollowReading();
+    state.selectedChar = "";
+    refs.currentChar.textContent = chars[0] || "-";
+    refs.writerTarget.innerHTML = "";
+    clearStrokeList();
+    setStrokeMeta("数学数字模式下不提供汉字笔顺演示，可直接生成并打印字帖。");
+    resetFollowPanel("");
+    return;
+  }
 
   if (chars.length === 0) {
     stopFollowReading();
@@ -514,6 +634,9 @@ function regenerate() {
 }
 
 function toggleLoopMode() {
+  if (!isHanziMode()) {
+    return;
+  }
   state.loopMode = !state.loopMode;
   refs.loopBtn.textContent = `循环演示：${state.loopMode ? "开" : "关"}`;
 
@@ -533,6 +656,12 @@ function toggleLoopMode() {
 }
 
 function bindEvents() {
+  refs.practiceModeSelect?.addEventListener("change", () => {
+    state.practiceMode = refs.practiceModeSelect.value === "math" ? "math" : "hanzi";
+    refreshPracticeModeUI();
+    regenerate();
+  });
+
   refs.generateBtn.addEventListener("click", regenerate);
   refs.printBtn.addEventListener("click", () => {
     if (!store || typeof store.consumeFeatureUsage !== "function") {
@@ -560,7 +689,7 @@ function bindEvents() {
   });
 
   refs.animateBtn.addEventListener("click", () => {
-    if (!state.writer || !state.selectedChar) {
+    if (!isHanziMode() || !state.writer || !state.selectedChar) {
       return;
     }
     state.loopMode = false;
@@ -573,22 +702,30 @@ function bindEvents() {
   refs.loopBtn.addEventListener("click", toggleLoopMode);
 
   refs.speakBtn?.addEventListener("click", () => {
-    if (!state.selectedChar) {
+    if (!isHanziMode() || !state.selectedChar) {
       return;
     }
     speakText(state.selectedChar);
   });
 
-  refs.followBtn?.addEventListener("click", startFollowReading);
+  refs.followBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
+    startFollowReading();
+  });
 
   refs.addCurrentToCartBtn?.addEventListener("click", () => {
-    if (!state.selectedChar) {
+    if (!isHanziMode() || !state.selectedChar) {
       return;
     }
     addCharsToCart(state.selectedChar, "worksheet_current_char");
   });
 
   refs.useCartBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
     const cart = getCartChars();
     if (!cart.length) {
       return;
@@ -598,6 +735,9 @@ function bindEvents() {
   });
 
   refs.mergeCartBtn?.addEventListener("click", () => {
+    if (!isHanziMode()) {
+      return;
+    }
     const cart = getCartChars();
     if (!cart.length) {
       return;
@@ -608,7 +748,7 @@ function bindEvents() {
   });
 
   refs.clearCartBtn?.addEventListener("click", () => {
-    if (!store) {
+    if (!isHanziMode() || !store) {
       return;
     }
     store.clearWorksheetCart();
@@ -616,7 +756,7 @@ function bindEvents() {
   });
 
   refs.quizBtn.addEventListener("click", () => {
-    if (!state.writer || !state.selectedChar) {
+    if (!isHanziMode() || !state.writer || !state.selectedChar) {
       return;
     }
     state.loopMode = false;
@@ -658,13 +798,21 @@ function bootstrap() {
   }
   setupFollowReading();
   const params = new URLSearchParams(window.location.search);
-  const presetChars = extractChineseChars(params.get("chars") || "");
+  state.practiceMode = params.get("mode") === "math" ? "math" : "hanzi";
+  if (refs.practiceModeSelect) {
+    refs.practiceModeSelect.value = state.practiceMode;
+  }
+  refreshPracticeModeUI();
+  const presetSource =
+    state.practiceMode === "math" ? params.get("expr") || params.get("chars") || "" : params.get("chars") || "";
+  const presetChars = extractInputChars(presetSource);
   const cart = getCartChars();
+  const fallback = state.practiceMode === "math" ? "1+2=3 8÷2=4" : "永和春风";
   refs.textInput.value = presetChars.length
     ? presetChars.join("")
-    : cart.length
+    : isHanziMode() && cart.length
     ? cart.join("")
-    : "永和春风";
+    : fallback;
   refreshCartPanel();
   refreshBillingTip();
   bindEvents();
