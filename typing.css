@@ -177,7 +177,7 @@ button.ghost {
 
 .keyboard-controls {
   display: grid;
-  grid-template-columns: 108px 1fr 70px 1fr;
+  grid-template-columns: 108px 1fr 70px 1fr 80px 1fr;
   gap: 8px 10px;
   align-items: center;
 }
@@ -261,6 +261,25 @@ h3 {
   border-radius: 10px;
 }
 
+.daily-task-box {
+  margin-top: 10px;
+  border: 1px solid #dbe7fb;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px;
+}
+
+.task-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-head h3 {
+  margin: 0;
+}
+
 .keyboard-stats {
   margin-top: 10px;
   display: grid;
@@ -314,10 +333,37 @@ h3 {
   border-color: #f3aab3;
 }
 
+.fingering-chart {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.finger-card {
+  border: 1px solid #dbe7fb;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px;
+}
+
+.finger-title {
+  margin: 0 0 4px;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.finger-keys {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+}
+
 .history-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 420px;
+  min-width: 620px;
 }
 
 .history-table th,

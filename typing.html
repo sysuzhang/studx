@@ -144,6 +144,13 @@
               <option value="90">90 秒</option>
               <option value="120">120 秒</option>
             </select>
+
+            <label for="keyboardLevelSelect">训练关卡</label>
+            <select id="keyboardLevelSelect">
+              <option value="beginner">初级</option>
+              <option value="intermediate">中级</option>
+              <option value="advanced">高级</option>
+            </select>
           </div>
 
           <div class="actions">
@@ -151,7 +158,22 @@
             <button id="keyboardEndBtn" type="button" class="ghost">结束键位练习</button>
           </div>
 
+          <div class="daily-task-box">
+            <div class="task-head">
+              <h3>每日键位任务</h3>
+              <button id="dailyTaskApplyBtn" type="button" class="ghost">应用任务配置</button>
+            </div>
+            <p id="dailyTaskTitle" class="meta">加载中...</p>
+            <p id="dailyTaskDesc" class="meta">-</p>
+            <p id="dailyTaskProgress" class="meta">-</p>
+            <p id="dailyTaskStatus" class="meta">-</p>
+          </div>
+
           <div class="keyboard-stats">
+            <article class="stat">
+              <p class="label">键位积分</p>
+              <p id="keyboardScoreValue" class="value">0</p>
+            </article>
             <article class="stat">
               <p class="label">目标按键</p>
               <p id="targetKeyValue" class="value">-</p>
@@ -177,6 +199,42 @@
           <p id="fingerHintText" class="meta">手指提示：请点击“开始键位练习”。</p>
           <p id="keyboardFeedbackText" class="feedback">等待开始...</p>
           <div id="virtualKeyboard" class="virtual-keyboard"></div>
+
+          <h3>指法教学图</h3>
+          <div class="fingering-chart">
+            <article class="finger-card">
+              <p class="finger-title">左手小指</p>
+              <p class="finger-keys">Q A Z</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">左手无名指</p>
+              <p class="finger-keys">W S X</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">左手中指</p>
+              <p class="finger-keys">E D C</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">左手食指</p>
+              <p class="finger-keys">R F V / T G B</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">右手食指</p>
+              <p class="finger-keys">Y H N / U J M</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">右手中指</p>
+              <p class="finger-keys">I K</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">右手无名指</p>
+              <p class="finger-keys">O L</p>
+            </article>
+            <article class="finger-card">
+              <p class="finger-title">右手小指</p>
+              <p class="finger-keys">P ;</p>
+            </article>
+          </div>
         </article>
 
         <article class="panel">
@@ -191,6 +249,8 @@
                 <tr>
                   <th>时间</th>
                   <th>键位集</th>
+                  <th>关卡</th>
+                  <th>积分</th>
                   <th>命中</th>
                   <th>命中率</th>
                   <th>速度</th>

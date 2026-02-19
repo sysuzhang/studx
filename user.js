@@ -113,6 +113,9 @@ function renderStats() {
   const keyboardStats = store
     ? store.getKeyboardPracticeStats()
     : { totalSessions: 0, bestAccuracy: 0, averageAccuracy: 0, bestSpeed: 0, averageSpeed: 0, totalHits: 0 };
+  const keyboardDailyStats = store
+    ? store.getKeyboardDailyTaskStats()
+    : { totalDays: 0, completedDays: 0, completionRate: 0, todayCompleted: false, latestCompletedAt: 0 };
   const cart = store ? store.getWorksheetCart() : [];
   const progress = library.length
     ? Math.round((calendarStats.learnedChars.length / library.length) * 100)
@@ -160,6 +163,14 @@ function renderStats() {
       <p class="value">${keyboardStats.averageSpeed}</p>
     </article>
     <article class="stat">
+      <p class="label">键位日任务完成天数</p>
+      <p class="value">${keyboardDailyStats.completedDays}</p>
+    </article>
+    <article class="stat">
+      <p class="label">今日键位任务</p>
+      <p class="value">${keyboardDailyStats.todayCompleted ? "已完成" : "未完成"}</p>
+    </article>
+    <article class="stat">
       <p class="label">字帖收藏汉字</p>
       <p class="value">${cart.length}</p>
     </article>
@@ -179,6 +190,9 @@ function evaluateLevel() {
   const keyboardStats = store
     ? store.getKeyboardPracticeStats()
     : { totalSessions: 0, bestAccuracy: 0, averageAccuracy: 0, bestSpeed: 0, averageSpeed: 0, totalHits: 0 };
+  const keyboardDailyStats = store
+    ? store.getKeyboardDailyTaskStats()
+    : { totalDays: 0, completedDays: 0, completionRate: 0, todayCompleted: false, latestCompletedAt: 0 };
   const profile = store ? store.getUserProfile() : { targetLevel: "HSK1", dailyMinutes: 20, goals: "" };
   const learned = calendarStats.learnedChars.length;
 
@@ -223,6 +237,9 @@ function evaluateLevel() {
       : keyboardStats.averageSpeed >= 140
       ? "键位熟练度较好，可在打字闯关中提高节奏并减少跳过。"
       : "键位练习可先用 60 秒短局，重点关注目标按键与对应手指。",
+    keyboardDailyStats.todayCompleted
+      ? "今日键位任务已完成，可把练习重心切换到分级汉字闯关。"
+      : "建议先在打字闯关页完成“每日键位任务”，形成稳定输入习惯。",
   ];
 
   refs.evaluationBox.innerHTML = `
@@ -293,7 +310,14 @@ function activityMessage(log) {
     }%`;
   }
   if (log.type === "keyboard_practice_finish") {
-    return `完成键位练习：命中率 ${log.payload?.accuracy ?? 0}% ，速度 ${log.payload?.speed ?? 0} 键/分`;
+    const levelMap = { beginner: "初级", intermediate: "中级", advanced: "高级" };
+    const level = levelMap[log.payload?.level] || "练习";
+    return `完成键位练习（${level}）：积分 ${log.payload?.score ?? 0}，命中率 ${log.payload?.accuracy ?? 0}% ，速度 ${
+      log.payload?.speed ?? 0
+    } 键/分`;
+  }
+  if (log.type === "keyboard_daily_task_done") {
+    return `完成每日键位任务：目标命中 ${log.payload?.targetHits ?? 0}，目标速度 ${log.payload?.targetSpeed ?? 0} 键/分`;
   }
   return "完成了一次学习操作";
 }

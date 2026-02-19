@@ -23,8 +23,10 @@ const refs = {
   historyBody: document.getElementById("historyBody"),
   keySetSelect: document.getElementById("keySetSelect"),
   keyboardDurationSelect: document.getElementById("keyboardDurationSelect"),
+  keyboardLevelSelect: document.getElementById("keyboardLevelSelect"),
   keyboardStartBtn: document.getElementById("keyboardStartBtn"),
   keyboardEndBtn: document.getElementById("keyboardEndBtn"),
+  keyboardScoreValue: document.getElementById("keyboardScoreValue"),
   targetKeyValue: document.getElementById("targetKeyValue"),
   keyboardTimerValue: document.getElementById("keyboardTimerValue"),
   keyboardStreakValue: document.getElementById("keyboardStreakValue"),
@@ -35,6 +37,11 @@ const refs = {
   virtualKeyboard: document.getElementById("virtualKeyboard"),
   keyboardSummary: document.getElementById("keyboardSummary"),
   keyboardHistoryBody: document.getElementById("keyboardHistoryBody"),
+  dailyTaskApplyBtn: document.getElementById("dailyTaskApplyBtn"),
+  dailyTaskTitle: document.getElementById("dailyTaskTitle"),
+  dailyTaskDesc: document.getElementById("dailyTaskDesc"),
+  dailyTaskProgress: document.getElementById("dailyTaskProgress"),
+  dailyTaskStatus: document.getElementById("dailyTaskStatus"),
 };
 
 const store = window.LearningStore;
@@ -62,6 +69,8 @@ const state = {
     timeLeft: 60,
     duration: 60,
     keySet: "home",
+    level: "beginner",
+    score: 0,
     targetKey: "",
     hits: 0,
     misses: 0,
@@ -89,6 +98,36 @@ const KEYBOARD_SET_LABEL = {
   home: "基础键位",
   pinyin: "拼音高频字母",
   full: "全字母+分号",
+};
+
+const KEYBOARD_LEVEL_LABEL = {
+  beginner: "初级",
+  intermediate: "中级",
+  advanced: "高级",
+};
+
+const KEYBOARD_LEVEL_CONFIG = {
+  beginner: {
+    hitPoint: 10,
+    streakBonus: 1,
+    missPenalty: 3,
+    targetAccuracy: 78,
+    targetSpeed: 80,
+  },
+  intermediate: {
+    hitPoint: 14,
+    streakBonus: 2,
+    missPenalty: 5,
+    targetAccuracy: 84,
+    targetSpeed: 120,
+  },
+  advanced: {
+    hitPoint: 18,
+    streakBonus: 3,
+    missPenalty: 8,
+    targetAccuracy: 88,
+    targetSpeed: 160,
+  },
 };
 
 const KEYBOARD_ROWS = [
@@ -180,6 +219,7 @@ function refreshKeyboardBoard() {
   const accuracy = total ? Math.round((keyboard.hits / total) * 100) : 0;
   const elapsedSeconds = keyboard.startTs ? Math.max(1, Math.floor((Date.now() - keyboard.startTs) / 1000)) : 0;
   const speed = elapsedSeconds ? Math.round((keyboard.hits / elapsedSeconds) * 60) : 0;
+  refs.keyboardScoreValue.textContent = `${keyboard.score}`;
   refs.targetKeyValue.textContent = keyboard.targetKey ? formatKeyLabel(keyboard.targetKey) : "-";
   refs.keyboardTimerValue.textContent = `${keyboard.timeLeft}s`;
   refs.keyboardStreakValue.textContent = `${keyboard.streak}`;
@@ -290,6 +330,22 @@ function getKeyboardSetChars() {
 
 function getKeyboardSetLabel(keySet) {
   return KEYBOARD_SET_LABEL[keySet] || "键位练习";
+}
+
+function getKeyboardLevelLabel(level) {
+  return KEYBOARD_LEVEL_LABEL[level] || "初级";
+}
+
+function getKeyboardLevelConfig(level) {
+  return KEYBOARD_LEVEL_CONFIG[level] || KEYBOARD_LEVEL_CONFIG.beginner;
+}
+
+function toDateKey(ts) {
+  const date = new Date(Number.isFinite(ts) ? ts : Date.now());
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function updateFingerHint() {
@@ -419,7 +475,7 @@ function renderKeyboardHistory() {
     store && typeof store.getKeyboardPracticeRecords === "function" ? store.getKeyboardPracticeRecords() : [];
   const latest = records.slice(-12).reverse();
   if (!latest.length) {
-    refs.keyboardHistoryBody.innerHTML = `<tr><td colspan="6" class="empty">暂无记录，开始第一局键位练习吧。</td></tr>`;
+    refs.keyboardHistoryBody.innerHTML = `<tr><td colspan="8" class="empty">暂无记录，开始第一局键位练习吧。</td></tr>`;
     return;
   }
   latest.forEach((item) => {
@@ -427,6 +483,8 @@ function renderKeyboardHistory() {
     row.innerHTML = `
       <td>${formatTime(item.ts)}</td>
       <td>${getKeyboardSetLabel(item.keySet)}</td>
+      <td>${getKeyboardLevelLabel(item.level)}</td>
+      <td>${item.score || 0}</td>
       <td>${item.hits}</td>
       <td>${item.accuracy}%</td>
       <td>${item.speed}</td>
@@ -434,6 +492,50 @@ function renderKeyboardHistory() {
     `;
     refs.keyboardHistoryBody.appendChild(row);
   });
+}
+
+function renderDailyTask(task) {
+  if (!task) {
+    refs.dailyTaskTitle.textContent = "今日任务不可用";
+    refs.dailyTaskDesc.textContent = "当前浏览器未启用本地存储。";
+    refs.dailyTaskProgress.textContent = "进度：-";
+    refs.dailyTaskStatus.textContent = "状态：-";
+    refs.dailyTaskApplyBtn.disabled = true;
+    return;
+  }
+  refs.dailyTaskApplyBtn.disabled = false;
+  refs.dailyTaskTitle.textContent = `今日任务（${getKeyboardLevelLabel(task.level)}）`;
+  refs.dailyTaskDesc.textContent = `目标：键位集 ${getKeyboardSetLabel(task.keySet)}，时长 ${task.duration}s，命中 ≥ ${
+    task.targetHits
+  }，命中率 ≥ ${task.targetAccuracy}% ，速度 ≥ ${task.targetSpeed} 键/分。`;
+  refs.dailyTaskProgress.textContent = `进度：今日已练 ${task.sessionCount || 0} 局，最佳命中 ${
+    task.bestHits || 0
+  }，最佳命中率 ${task.bestAccuracy || 0}% ，最佳速度 ${task.bestSpeed || 0} 键/分。`;
+  refs.dailyTaskStatus.textContent = task.completed
+    ? `状态：已完成（${formatTime(task.completedAt || Date.now())}）`
+    : "状态：未完成";
+}
+
+function loadDailyTask() {
+  if (!store || typeof store.getKeyboardDailyTask !== "function") {
+    renderDailyTask(null);
+    return null;
+  }
+  const task = store.getKeyboardDailyTask(toDateKey());
+  renderDailyTask(task);
+  return task;
+}
+
+function applyDailyTaskSettings() {
+  const task = loadDailyTask();
+  if (!task) {
+    setKeyboardFeedback("warn", "每日任务暂不可用。");
+    return;
+  }
+  refs.keySetSelect.value = task.keySet;
+  refs.keyboardDurationSelect.value = `${task.duration}`;
+  refs.keyboardLevelSelect.value = task.level;
+  setKeyboardFeedback("ok", "已应用今日任务配置，可直接开始练习。");
 }
 
 function endKeyboardPractice(reason) {
@@ -461,7 +563,9 @@ function endKeyboardPractice(reason) {
 
   const record = {
     keySet: keyboard.keySet,
+    level: keyboard.level,
     duration: keyboard.duration,
+    score: keyboard.score,
     hits: keyboard.hits,
     misses: keyboard.misses,
     total: keyboard.hits + keyboard.misses,
@@ -475,12 +579,22 @@ function endKeyboardPractice(reason) {
   }
 
   refs.keyboardSummary.innerHTML = `
+    <p>训练关卡：${getKeyboardLevelLabel(keyboard.level)}</p>
     <p>键位集：${getKeyboardSetLabel(keyboard.keySet)}</p>
+    <p>键位积分：${keyboard.score}</p>
     <p>命中 / 总按键：${keyboard.hits} / ${keyboard.hits + keyboard.misses}</p>
     <p>命中率：${stats.accuracy}%</p>
     <p>速度：${stats.speed} 键/分</p>
     <p>连对峰值：${keyboard.maxStreak}</p>
   `;
+
+  if (store && typeof store.updateKeyboardDailyTaskProgress === "function") {
+    const task = store.updateKeyboardDailyTaskProgress(record, toDateKey());
+    if (task?.justCompleted) {
+      setKeyboardFeedback("ok", "恭喜完成今日键位任务！");
+    }
+    renderDailyTask(task);
+  }
   renderKeyboardHistory();
 }
 
@@ -500,8 +614,10 @@ function startKeyboardPractice() {
     return;
   }
   state.keyboard.keySet = refs.keySetSelect.value || "home";
+  state.keyboard.level = refs.keyboardLevelSelect.value || "beginner";
   state.keyboard.duration = Number.parseInt(refs.keyboardDurationSelect.value, 10) || 60;
   state.keyboard.timeLeft = state.keyboard.duration;
+  state.keyboard.score = 0;
   state.keyboard.hits = 0;
   state.keyboard.misses = 0;
   state.keyboard.streak = 0;
@@ -512,7 +628,7 @@ function startKeyboardPractice() {
   state.keyboard.running = true;
 
   refs.keyboardSummary.innerHTML = `<p class="empty">键位练习进行中...</p>`;
-  setKeyboardFeedback("warn", "键位练习开始，请按下目标按键。");
+  setKeyboardFeedback("warn", `键位练习开始（${getKeyboardLevelLabel(state.keyboard.level)}），请按下目标按键。`);
   pickKeyboardTarget();
 
   if (state.keyboard.timerId) {
@@ -532,20 +648,23 @@ function handleKeyboardPracticeInput(event) {
   }
   event.preventDefault();
   const allowed = getKeyboardSetChars();
+  const levelConfig = getKeyboardLevelConfig(state.keyboard.level);
   if (key === state.keyboard.targetKey) {
     state.keyboard.hits += 1;
     state.keyboard.streak += 1;
     state.keyboard.maxStreak = Math.max(state.keyboard.maxStreak, state.keyboard.streak);
-    setKeyboardFeedback("ok", `正确：${formatKeyLabel(key)}。继续保持！`);
+    state.keyboard.score += levelConfig.hitPoint + state.keyboard.streak * levelConfig.streakBonus;
+    setKeyboardFeedback("ok", `正确：${formatKeyLabel(key)}。继续保持！（+${levelConfig.hitPoint}）`);
     flashKeyboardKey(key, "hit");
     pickKeyboardTarget();
   } else {
     state.keyboard.misses += 1;
     state.keyboard.streak = 0;
+    state.keyboard.score = Math.max(0, state.keyboard.score - levelConfig.missPenalty);
     if (allowed.includes(key)) {
       setKeyboardFeedback(
         "bad",
-        `按键 ${formatKeyLabel(key)} 错误，目标是 ${formatKeyLabel(state.keyboard.targetKey)}。`
+        `按键 ${formatKeyLabel(key)} 错误，目标是 ${formatKeyLabel(state.keyboard.targetKey)}（-${levelConfig.missPenalty}）`
       );
     } else {
       setKeyboardFeedback("warn", `按键 ${formatKeyLabel(key)} 不在当前键位集内。`);
@@ -718,6 +837,7 @@ function bindEvents() {
   refs.addWrongToCartBtn.addEventListener("click", addWrongToCart);
   refs.keyboardStartBtn.addEventListener("click", startKeyboardPractice);
   refs.keyboardEndBtn.addEventListener("click", () => endKeyboardPractice("已手动结束"));
+  refs.dailyTaskApplyBtn.addEventListener("click", applyDailyTaskSettings);
   window.addEventListener("keydown", handleKeyboardPracticeInput);
 }
 
@@ -730,6 +850,7 @@ function bootstrap() {
   refs.sessionSummary.innerHTML = `<p class="empty">尚未开始本局。</p>`;
   refs.keyboardSummary.innerHTML = `<p class="empty">尚未开始键位练习。</p>`;
   updateFingerHint();
+  loadDailyTask();
   renderHistory();
   renderKeyboardHistory();
   renderVirtualKeyboard();
