@@ -22,6 +22,45 @@ body {
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
+body[data-theme="night"] {
+  --bg: #0b1220;
+  --panel: #121c2f;
+  --line: #253551;
+  --text: #e6eefc;
+  --muted: #9bb0d1;
+  --brand: #60a5fa;
+  --brand-soft: #1d2a44;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+}
+
+body[data-theme="neon"] {
+  --bg: #07090f;
+  --panel: #111827;
+  --line: #2c2f56;
+  --text: #e4fffb;
+  --muted: #8ae6dd;
+  --brand: #06b6d4;
+  --brand-soft: #17314a;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --bad: #fb7185;
+}
+
+body[data-theme="sunset"] {
+  --bg: #fff3eb;
+  --panel: #fffaf4;
+  --line: #f2cfb8;
+  --text: #3a2517;
+  --muted: #8f5c3e;
+  --brand: #f97316;
+  --brand-soft: #ffe7d6;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #b91c1c;
+}
+
 .topbar {
   padding: 18px clamp(16px, 4vw, 48px) 30px;
   background:
@@ -199,6 +238,24 @@ button.ghost {
   background: #f8fbff;
 }
 
+.boss-panel {
+  border: 1px solid #f4c67b;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: linear-gradient(180deg, #fff7e8 0%, #ffefcf 100%);
+}
+
+.boss-title {
+  margin: 0 0 6px;
+  color: #b45309;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.hidden {
+  display: none;
+}
+
 .mission-title {
   margin: 0 0 6px;
   color: #1e3a8a;
@@ -324,6 +381,12 @@ button.ghost {
   border-color: #a5b4fc;
 }
 
+.target.boss {
+  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #f87171;
+  box-shadow: 0 8px 20px rgba(185, 28, 28, 0.28);
+}
+
 .bullet {
   position: absolute;
   width: 16px;
@@ -338,6 +401,27 @@ button.ghost {
   box-shadow: 0 4px 10px rgba(29, 78, 216, 0.35);
   user-select: none;
   z-index: 7;
+}
+
+.streak-fx {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.85);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #bfd7ff;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.streak-fx.show {
+  animation: streak-pop 0.85s ease-out;
 }
 
 .active-key-wrap {
@@ -439,6 +523,21 @@ button.ghost {
 .empty {
   margin: 0;
   color: #64748b;
+}
+
+@keyframes streak-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(0.76);
+  }
+  25% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-18px) scale(1);
+  }
 }
 
 @media (max-width: 1080px) {

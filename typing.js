@@ -3,6 +3,7 @@ const refs = {
   levelFilter: document.getElementById("levelFilter"),
   durationSelect: document.getElementById("durationSelect"),
   includeWords: document.getElementById("includeWords"),
+  themeSelect: document.getElementById("themeSelect"),
   startBtn: document.getElementById("startBtn"),
   skipBtn: document.getElementById("skipBtn"),
   endBtn: document.getElementById("endBtn"),
@@ -14,6 +15,11 @@ const refs = {
   promptType: document.getElementById("promptType"),
   promptText: document.getElementById("promptText"),
   promptHint: document.getElementById("promptHint"),
+  streakFx: document.getElementById("streakFx"),
+  bossPanel: document.getElementById("bossPanel"),
+  bossTitle: document.getElementById("bossTitle"),
+  bossDesc: document.getElementById("bossDesc"),
+  bossHp: document.getElementById("bossHp"),
   queueStream: document.getElementById("queueStream"),
   answerInput: document.getElementById("answerInput"),
   submitBtn: document.getElementById("submitBtn"),
@@ -22,6 +28,7 @@ const refs = {
   openWorksheetLink: document.getElementById("openWorksheetLink"),
   sessionSummary: document.getElementById("sessionSummary"),
   historyBody: document.getElementById("historyBody"),
+  leaderboardBody: document.getElementById("leaderboardBody"),
   missionTitle: document.getElementById("missionTitle"),
   missionDesc: document.getElementById("missionDesc"),
   missionStatus: document.getElementById("missionStatus"),
@@ -29,6 +36,7 @@ const refs = {
 
 const store = window.LearningStore;
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
+const THEME_STORAGE_KEY = "arenaThemeV1";
 
 const levelBuckets = {
   basic: new Set(["启蒙", "HSK1"]),
@@ -90,6 +98,9 @@ const state = {
   pool: [],
   mission: null,
   composing: false,
+  boss: null,
+  nextBossAt: 8,
+  bossDefeated: 0,
 };
 
 function normalizePinyin(text) {
@@ -114,6 +125,105 @@ function formatTime(ts) {
   const h = `${date.getHours()}`.padStart(2, "0");
   const min = `${date.getMinutes()}`.padStart(2, "0");
   return `${h}:${min}`;
+}
+
+function sanitizeTheme(theme) {
+  const allowed = new Set(["default", "night", "neon", "sunset"]);
+  return allowed.has(theme) ? theme : "default";
+}
+
+function applyTheme(theme, persist) {
+  const safe = sanitizeTheme(theme);
+  if (safe === "default") {
+    document.body.removeAttribute("data-theme");
+  } else {
+    document.body.setAttribute("data-theme", safe);
+  }
+  if (refs.themeSelect) {
+    refs.themeSelect.value = safe;
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, safe);
+    } catch (error) {
+      // Ignore storage errors.
+    }
+  }
+}
+
+function loadTheme() {
+  let saved = "default";
+  try {
+    saved = localStorage.getItem(THEME_STORAGE_KEY) || "default";
+  } catch (error) {
+    saved = "default";
+  }
+  applyTheme(saved, false);
+}
+
+function showStreakFx(text) {
+  if (!refs.streakFx) {
+    return;
+  }
+  refs.streakFx.textContent = text;
+  refs.streakFx.classList.remove("show");
+  void refs.streakFx.offsetWidth;
+  refs.streakFx.classList.add("show");
+}
+
+function renderBossPanel() {
+  if (!refs.bossPanel || !refs.bossTitle || !refs.bossDesc || !refs.bossHp) {
+    return;
+  }
+  if (!state.boss || !state.boss.active) {
+    refs.bossPanel.classList.add("hidden");
+    return;
+  }
+  refs.bossPanel.classList.remove("hidden");
+  refs.bossTitle.textContent = `Boss 第 ${state.boss.round} 关：${state.boss.prompt.text}`;
+  refs.bossDesc.textContent = `读音：${state.boss.prompt.pinyin || "—"}；含义：${state.boss.prompt.meaning || "请精准输入"}`;
+  refs.bossHp.textContent = `护盾：${state.boss.hp}/${state.boss.maxHp}`;
+}
+
+function pickBossPrompt() {
+  const wordCandidates =
+    state.mode === "hanzi" && refs.includeWords.checked
+      ? state.pool.filter((item) => item.kind === "word")
+      : [];
+  const sourcePool = wordCandidates.length ? wordCandidates : state.pool;
+  const picked = sourcePool[Math.floor(Math.random() * sourcePool.length)];
+  return picked ? { ...picked } : null;
+}
+
+function startBossRound() {
+  const prompt = pickBossPrompt();
+  if (!prompt) {
+    return;
+  }
+  const round = state.bossDefeated + 1;
+  const baseHp = state.mode === "hanzi" ? 3 : 4;
+  const hp = Math.min(7, baseHp + Math.floor(round / 2));
+  state.boss = {
+    active: true,
+    round,
+    hp,
+    maxHp: hp,
+    prompt,
+  };
+  renderBossPanel();
+  updatePromptDisplay();
+  showStreakFx(`Boss 第${round}关来袭`);
+  setFeedback("warn", `Boss 关开启：连续击中 ${hp} 次即可通关！`);
+}
+
+function maybeStartBossRound() {
+  if (!state.running || state.boss?.active) {
+    return;
+  }
+  if (state.correct < state.nextBossAt) {
+    return;
+  }
+  startBossRound();
 }
 
 function setFeedback(type, text) {
@@ -293,6 +403,16 @@ function renderQueueStream() {
 }
 
 function updatePromptDisplay() {
+  if (state.boss?.active) {
+    state.prompt = state.boss.prompt;
+    refs.promptType.textContent = `题型：Boss 关 / ${state.mode === "hanzi" ? "汉字输入" : "拼音输入"}`;
+    refs.promptText.textContent = state.boss.prompt.text;
+    refs.promptHint.textContent =
+      state.mode === "hanzi"
+        ? `Boss 护盾 ${state.boss.hp}/${state.boss.maxHp}：精准输入与题目相同的文本。`
+        : `Boss 护盾 ${state.boss.hp}/${state.boss.maxHp}：请输入拼音（可不带声调）。`;
+    return;
+  }
   state.prompt = state.promptQueue[0] || null;
   if (!state.prompt) {
     refs.promptType.textContent = "题型：当前无题目";
@@ -383,18 +503,53 @@ function applyCorrect() {
   if (state.prompt?.kind === "word") {
     state.wordCorrect += 1;
   }
+  if (state.combo >= 5 && state.combo % 5 === 0) {
+    showStreakFx(`${state.combo} 连胜`);
+  }
+
+  if (state.boss?.active) {
+    state.score += 20 + state.combo * 3;
+    state.boss.hp -= 1;
+    if (state.boss.hp > 0) {
+      renderBossPanel();
+      setFeedback("ok", `Boss 命中！剩余护盾 ${state.boss.hp}/${state.boss.maxHp}`);
+      return { advance: false };
+    }
+    state.score += 180 + state.boss.round * 20;
+    state.bossDefeated += 1;
+    state.nextBossAt += 10;
+    setFeedback("ok", `Boss 击破！奖励 +${180 + state.boss.round * 20} 分，进入下一题。`);
+    showStreakFx(`Boss ${state.boss.round} 击破`);
+    state.boss = null;
+    renderBossPanel();
+    tryCompleteMission(false);
+    return { advance: true };
+  }
+
   state.score += 12 + state.combo * 2;
   setFeedback("ok", `正确！连击 ${state.combo}，自动进入下一题。`);
   tryCompleteMission(false);
+  maybeStartBossRound();
+  return { advance: !state.boss?.active };
 }
 
 function applyWrong(expectedText, sourceText) {
   state.total += 1;
   state.combo = 0;
-  state.lives -= 1;
+  if (state.boss?.active) {
+    state.lives -= 1;
+  } else {
+    state.lives -= 1;
+  }
   hanChars(sourceText || "").forEach((char) => state.wrongChars.add(char));
+  if (state.boss?.active) {
+    setFeedback("bad", `Boss 防线未破，正确答案应为：${expectedText}`);
+    updateWorksheetLinkByWrong();
+    return { advance: false };
+  }
   setFeedback("bad", `错误，正确答案应为：${expectedText}`);
   updateWorksheetLinkByWrong();
+  return { advance: true };
 }
 
 function submitAnswer(fromAuto) {
@@ -405,19 +560,25 @@ function submitAnswer(fromAuto) {
   if (!snap.input) {
     return;
   }
+  let result = { advance: true };
   if (snap.exact) {
-    applyCorrect();
+    result = applyCorrect();
   } else {
-    applyWrong(snap.expectedView, state.prompt.text);
+    result = applyWrong(snap.expectedView, state.prompt.text);
   }
   refreshScoreBoard();
+  renderBossPanel();
 
   if (state.lives <= 0) {
     endGame("生命值耗尽");
     return;
   }
   refs.answerInput.value = "";
-  advancePrompt();
+  if (result.advance) {
+    advancePrompt();
+  } else {
+    updatePromptDisplay();
+  }
   if (!fromAuto) {
     refs.answerInput.focus();
   }
@@ -428,11 +589,15 @@ function skipPrompt() {
     return;
   }
   state.combo = 0;
-  state.lives -= 1;
+  state.lives -= state.boss?.active ? 2 : 1;
   state.total += 1;
   hanChars(state.prompt.text).forEach((char) => state.wrongChars.add(char));
   const expected = state.mode === "hanzi" ? state.prompt.text : state.prompt.pinyin || "（可不带声调）";
-  setFeedback("warn", `已跳过，正确答案参考：${expected}`);
+  if (state.boss?.active) {
+    setFeedback("warn", `Boss 关不可跳题，已损失 2 点生命。正确答案参考：${expected}`);
+  } else {
+    setFeedback("warn", `已跳过，正确答案参考：${expected}`);
+  }
   refreshScoreBoard();
   updateWorksheetLinkByWrong();
   if (state.lives <= 0) {
@@ -440,6 +605,11 @@ function skipPrompt() {
     return;
   }
   refs.answerInput.value = "";
+  if (state.boss?.active) {
+    updatePromptDisplay();
+    renderBossPanel();
+    return;
+  }
   advancePrompt();
 }
 
@@ -464,6 +634,7 @@ function endGame(reason) {
     state.timerId = null;
   }
   tryCompleteMission(true);
+  state.boss = null;
   const accuracy = state.total ? Math.round((state.correct / state.total) * 100) : 0;
 
   refs.promptType.textContent = "题型：本局已结束";
@@ -492,13 +663,16 @@ function endGame(reason) {
     <p>正确 / 总题：${state.correct} / ${state.total}</p>
     <p>命中率：${accuracy}%</p>
     <p>连击峰值：${state.maxCombo}</p>
+    <p>Boss 击破数：${state.bossDefeated}</p>
     <p>词组正确数：${state.wordCorrect}</p>
     <p>趣味任务：${state.mission?.completed ? "已完成" : "未完成"}</p>
     <p>错题字：${[...state.wrongChars].join("") || "无"}</p>
   `;
   renderMissionPanel();
+  renderBossPanel();
   updateWorksheetLinkByWrong();
   renderHistory();
+  renderLeaderboard();
 }
 
 function startGame() {
@@ -517,6 +691,9 @@ function startGame() {
   state.wordCorrect = 0;
   state.wrongChars = new Set();
   state.mission = createMission();
+  state.boss = null;
+  state.nextBossAt = 8;
+  state.bossDefeated = 0;
   state.pool = buildRoundPool();
   state.running = true;
 
@@ -532,6 +709,7 @@ function startGame() {
   renderQueueStream();
   updatePromptDisplay();
   renderMissionPanel();
+  renderBossPanel();
 
   refreshScoreBoard();
   setFeedback("warn", "闯关开始：实时匹配已启用，输入正确会自动切题。");
@@ -577,6 +755,30 @@ function renderHistory() {
   });
 }
 
+function renderLeaderboard() {
+  refs.leaderboardBody.innerHTML = "";
+  const records =
+    store && typeof store.getTypingGameRecords === "function" ? store.getTypingGameRecords() : [];
+  const ranked = [...records]
+    .sort((a, b) => (b.score || 0) - (a.score || 0) || (b.accuracy || 0) - (a.accuracy || 0))
+    .slice(0, 10);
+  if (!ranked.length) {
+    refs.leaderboardBody.innerHTML = `<tr><td colspan="5" class="empty">暂无排行数据。</td></tr>`;
+    return;
+  }
+  ranked.forEach((item, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>#${index + 1}</td>
+      <td>${formatTime(item.ts)}</td>
+      <td>${item.mode === "hanzi" ? "汉字" : "拼音"}</td>
+      <td>${item.score || 0}</td>
+      <td>${item.accuracy || 0}%</td>
+    `;
+    refs.leaderboardBody.appendChild(row);
+  });
+}
+
 function bindEvents() {
   refs.startBtn.addEventListener("click", startGame);
   refs.skipBtn.addEventListener("click", skipPrompt);
@@ -597,16 +799,23 @@ function bindEvents() {
     }
   });
   refs.addWrongToCartBtn.addEventListener("click", addWrongToCart);
+  refs.themeSelect?.addEventListener("change", () => {
+    applyTheme(refs.themeSelect.value, true);
+  });
+  window.addEventListener("focus", loadTheme);
 }
 
 function bootstrap() {
+  loadTheme();
   bindEvents();
   refreshScoreBoard();
   refs.promptType.textContent = "题型：待开始";
   refs.promptHint.textContent = "提示：选择模式后点击“开始闯关”。";
   refs.sessionSummary.innerHTML = `<p class="empty">尚未开始本局。</p>`;
   renderMissionPanel();
+  renderBossPanel();
   renderHistory();
+  renderLeaderboard();
   renderQueueStream();
   updateWorksheetLinkByWrong();
 }

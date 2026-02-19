@@ -2,6 +2,7 @@ const refs = {
   keySetSelect: document.getElementById("keySetSelect"),
   keyboardDurationSelect: document.getElementById("keyboardDurationSelect"),
   keyboardLevelSelect: document.getElementById("keyboardLevelSelect"),
+  themeSelect: document.getElementById("themeSelect"),
   membershipTip: document.getElementById("membershipTip"),
   keyboardStartBtn: document.getElementById("keyboardStartBtn"),
   keyboardEndBtn: document.getElementById("keyboardEndBtn"),
@@ -17,11 +18,16 @@ const refs = {
   missionTitle: document.getElementById("missionTitle"),
   missionDesc: document.getElementById("missionDesc"),
   missionStatus: document.getElementById("missionStatus"),
+  bossPanel: document.getElementById("bossPanel"),
+  bossTitle: document.getElementById("bossTitle"),
+  bossDesc: document.getElementById("bossDesc"),
+  bossHp: document.getElementById("bossHp"),
   battlefield: document.getElementById("battlefield"),
   targetLayer: document.getElementById("targetLayer"),
   bulletLayer: document.getElementById("bulletLayer"),
   plane: document.getElementById("plane"),
   battleOverlay: document.getElementById("battleOverlay"),
+  streakFx: document.getElementById("streakFx"),
   activeKeyStream: document.getElementById("activeKeyStream"),
   feedbackText: document.getElementById("feedbackText"),
   dailyTaskTitle: document.getElementById("dailyTaskTitle"),
@@ -30,9 +36,11 @@ const refs = {
   dailyTaskStatus: document.getElementById("dailyTaskStatus"),
   sessionSummary: document.getElementById("sessionSummary"),
   historyBody: document.getElementById("historyBody"),
+  leaderboardBody: document.getElementById("leaderboardBody"),
 };
 
 const store = window.LearningStore;
+const THEME_STORAGE_KEY = "arenaThemeV1";
 
 const KEY_SETS = {
   home: ["a", "s", "d", "f", "j", "k", "l", ";"],
@@ -188,6 +196,9 @@ const state = {
   mission: null,
   targetSeed: 1,
   bulletSeed: 1,
+  bossTargetId: null,
+  bossDefeated: 0,
+  nextBossDestroyed: 24,
   targets: [],
   bullets: [],
 };
@@ -205,6 +216,69 @@ function formatTime(ts) {
   const h = `${date.getHours()}`.padStart(2, "0");
   const min = `${date.getMinutes()}`.padStart(2, "0");
   return `${h}:${min}`;
+}
+
+function sanitizeTheme(theme) {
+  const allowed = new Set(["default", "night", "neon", "sunset"]);
+  return allowed.has(theme) ? theme : "default";
+}
+
+function applyTheme(theme, persist) {
+  const safe = sanitizeTheme(theme);
+  if (safe === "default") {
+    document.body.removeAttribute("data-theme");
+  } else {
+    document.body.setAttribute("data-theme", safe);
+  }
+  if (refs.themeSelect) {
+    refs.themeSelect.value = safe;
+  }
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, safe);
+    } catch (error) {
+      // Ignore.
+    }
+  }
+}
+
+function loadTheme() {
+  let saved = "default";
+  try {
+    saved = localStorage.getItem(THEME_STORAGE_KEY) || "default";
+  } catch (error) {
+    saved = "default";
+  }
+  applyTheme(saved, false);
+}
+
+function showStreakFx(text) {
+  if (!refs.streakFx) {
+    return;
+  }
+  refs.streakFx.textContent = text;
+  refs.streakFx.classList.remove("show");
+  void refs.streakFx.offsetWidth;
+  refs.streakFx.classList.add("show");
+}
+
+function renderBossPanel() {
+  if (!refs.bossPanel || !refs.bossTitle || !refs.bossDesc || !refs.bossHp) {
+    return;
+  }
+  if (!state.bossTargetId) {
+    refs.bossPanel.classList.add("hidden");
+    return;
+  }
+  const boss = state.targets.find((item) => item.id === state.bossTargetId);
+  if (!boss) {
+    refs.bossPanel.classList.add("hidden");
+    return;
+  }
+  refs.bossPanel.classList.remove("hidden");
+  refs.bossTitle.textContent = `Boss 第 ${state.bossDefeated + 1} 关：${formatKeyLabel(boss.char)}`;
+  refs.bossDesc.textContent = `击败可获得高分奖励、时间补给与护盾。`;
+  refs.bossHp.textContent = `护甲：${boss.hp}/${boss.maxHp || boss.hp}`;
 }
 
 function toDateKey(ts) {
@@ -395,7 +469,9 @@ function tryCompleteMission(finalPhase) {
 
 function renderTargetContent(target) {
   let tag = "";
-  if (target.type === "armored") {
+  if (target.type === "boss") {
+    tag = `Boss ${target.hp}`;
+  } else if (target.type === "armored") {
     tag = `装甲${target.hp}`;
   } else if (target.type === "bonus") {
     tag = "加分";
@@ -413,6 +489,8 @@ function createTargetElement(target) {
   const el = document.createElement("div");
   el.className = `target ${target.type}`;
   el.innerHTML = renderTargetContent(target);
+  el.style.width = `${target.size}px`;
+  el.style.height = `${target.size}px`;
   return el;
 }
 
@@ -442,6 +520,10 @@ function removeTargetById(targetId) {
     return null;
   }
   const [target] = state.targets.splice(idx, 1);
+  if (state.bossTargetId === target.id) {
+    state.bossTargetId = null;
+    renderBossPanel();
+  }
   target.el.remove();
   rebuildActiveKeys();
   return target;
@@ -450,6 +532,9 @@ function removeTargetById(targetId) {
 function spawnTarget() {
   const set = getSetChars();
   if (!set.length) {
+    return;
+  }
+  if (state.bossTargetId && Math.random() < 0.45) {
     return;
   }
   const conf = getLevelConfig();
@@ -491,6 +576,44 @@ function spawnTarget() {
   refs.targetLayer.appendChild(target.el);
   state.targets.push(target);
   rebuildActiveKeys();
+}
+
+function spawnBossTarget() {
+  if (state.bossTargetId || !state.running) {
+    return;
+  }
+  const set = getSetChars();
+  if (!set.length) {
+    return;
+  }
+  const conf = getLevelConfig();
+  const char = set[Math.floor(Math.random() * set.length)];
+  const size = 82;
+  const maxX = Math.max(8, refs.battlefield.clientWidth - size - 8);
+  const x = randomRange(8, maxX);
+  const hpBase = state.level === "advanced" ? 11 : state.level === "intermediate" ? 9 : 7;
+  const hp = hpBase + Math.min(4, state.bossDefeated);
+  const target = {
+    id: state.targetSeed++,
+    char,
+    type: "boss",
+    hp,
+    maxHp: hp,
+    x,
+    y: -96,
+    speed: Math.max(42, conf.fallMin * 0.6),
+    size,
+    el: null,
+  };
+  target.el = createTargetElement(target);
+  target.el.style.transform = `translate(${target.x}px, ${target.y}px)`;
+  refs.targetLayer.appendChild(target.el);
+  state.targets.push(target);
+  state.bossTargetId = target.id;
+  rebuildActiveKeys();
+  renderBossPanel();
+  showStreakFx(`Boss 第${state.bossDefeated + 1}关`);
+  setFeedback("warn", `Boss 来袭：击碎 ${formatKeyLabel(char)} 目标护甲 ${hp} 层！`);
 }
 
 function spawnBullet(char, offsetX = 0) {
@@ -553,14 +676,29 @@ function handleTargetDestroyed(target) {
     time: 16,
     heal: 16,
     freeze: 18,
+    boss: 45,
   };
   state.hits += 1;
   state.destroyed += 1;
   state.combo += 1;
   state.maxCombo = Math.max(state.maxCombo, state.combo);
   state.score += (pointMap[target.type] || 12) + state.combo * conf.comboBonus;
+  if (state.combo >= 8 && state.combo % 8 === 0) {
+    showStreakFx(`${state.combo} 连胜`);
+  }
 
-  if (target.type === "bonus") {
+  if (target.type === "boss") {
+    state.bossTargetId = null;
+    state.bossDefeated += 1;
+    const reward = 180 + state.bossDefeated * 25;
+    state.score += reward;
+    state.timeLeft += 8;
+    state.shield = Math.min(3, state.shield + 1);
+    state.nextBossDestroyed += 30;
+    showStreakFx(`Boss 击破 +${reward}`);
+    setFeedback("ok", `Boss 击破！奖励 +${reward}，时间 +8 秒，护盾 +1`);
+    renderBossPanel();
+  } else if (target.type === "bonus") {
     state.score += 30;
     state.rapidUntil = Date.now() + 6500;
     state.bonusCount += 1;
@@ -585,6 +723,9 @@ function handleTargetDestroyed(target) {
     setFeedback("ok", `连击奖励：获得 1 层护盾（当前 ${state.shield}）`);
   }
   tryCompleteMission(false);
+  if (!state.bossTargetId && state.destroyed >= state.nextBossDestroyed) {
+    spawnBossTarget();
+  }
 }
 
 function onBulletHit(targetId) {
@@ -595,7 +736,12 @@ function onBulletHit(targetId) {
   target.hp -= 1;
   if (target.hp > 0) {
     target.el.innerHTML = renderTargetContent(target);
-    setFeedback("warn", `命中装甲目标 ${formatKeyLabel(target.char)}，剩余护甲 ${target.hp}`);
+    if (target.type === "boss") {
+      setFeedback("warn", `Boss 命中：${formatKeyLabel(target.char)} 剩余护甲 ${target.hp}`);
+      renderBossPanel();
+    } else {
+      setFeedback("warn", `命中装甲目标 ${formatKeyLabel(target.char)}，剩余护甲 ${target.hp}`);
+    }
     return;
   }
   const removed = removeTargetById(targetId);
@@ -607,6 +753,15 @@ function onBulletHit(targetId) {
 function handleTargetBreach(targetId) {
   const removed = removeTargetById(targetId);
   if (!removed) {
+    return;
+  }
+  if (removed.type === "boss") {
+    state.bossTargetId = null;
+    state.combo = 0;
+    state.lives -= 2;
+    state.nextBossDestroyed += 10;
+    setFeedback("bad", `Boss 突破防线：生命 -2（${formatKeyLabel(removed.char)}）`);
+    renderBossPanel();
     return;
   }
   state.combo = 0;
@@ -735,6 +890,7 @@ function endGame(reason) {
     cancelAnimationFrame(state.rafId);
     state.rafId = null;
   }
+  state.bossTargetId = null;
   tryCompleteMission(true);
   const { total, accuracy, speed } = computeStats();
   const missCount = Math.max(0, total - state.hits);
@@ -770,11 +926,14 @@ function endGame(reason) {
     <p>命中率：${accuracy}%</p>
     <p>速度：${speed} 键/分</p>
     <p>连击峰值：${state.maxCombo}</p>
+    <p>Boss 击破数：${state.bossDefeated}</p>
     <p>趣味任务：${state.mission?.completed ? "已完成" : "未完成"}</p>
     <p>每日任务：${dailyTask?.completed ? "已完成" : "未完成"}</p>
   `;
 
   renderHistory();
+  renderLeaderboard();
+  renderBossPanel();
   showOverlay(`本局结束：${state.score} 分`);
   setFeedback("warn", `${reason}。点击“开始空战”可再来一局。`);
 }
@@ -784,9 +943,11 @@ function clearField() {
   state.bullets.forEach((bullet) => bullet.el.remove());
   state.targets = [];
   state.bullets = [];
+  state.bossTargetId = null;
   refs.targetLayer.innerHTML = "";
   refs.bulletLayer.innerHTML = "";
   rebuildActiveKeys();
+  renderBossPanel();
 }
 
 function startGame() {
@@ -825,11 +986,15 @@ function startGame() {
   state.lastShotTs = 0;
   state.targetSeed = 1;
   state.bulletSeed = 1;
+  state.bossTargetId = null;
+  state.bossDefeated = 0;
+  state.nextBossDestroyed = 24;
   state.mission = createMission(state.level);
   state.lives = getLevelConfig(state.level).startLives;
   clearField();
   centerPlane();
   renderMissionPanel();
+  renderBossPanel();
   hideOverlay();
   refs.sessionSummary.innerHTML = `<p class="empty">本局进行中...</p>`;
   setFeedback("warn", "空战开始：按下已出现字母即可击碎对应障碍物。");
@@ -947,6 +1112,36 @@ function renderHistory() {
   });
 }
 
+function renderLeaderboard() {
+  refs.leaderboardBody.innerHTML = "";
+  const rows =
+    store && typeof store.getKeyboardPracticeRecords === "function" ? store.getKeyboardPracticeRecords() : [];
+  const ranked = [...rows]
+    .sort(
+      (a, b) =>
+        (b.score || 0) - (a.score || 0) ||
+        (b.hits || 0) - (a.hits || 0) ||
+        (b.accuracy || 0) - (a.accuracy || 0)
+    )
+    .slice(0, 10);
+  if (!ranked.length) {
+    refs.leaderboardBody.innerHTML = `<tr><td colspan="6" class="empty">暂无排行数据。</td></tr>`;
+    return;
+  }
+  ranked.forEach((item, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>#${index + 1}</td>
+      <td>${formatTime(item.ts)}</td>
+      <td>${getLevelLabel(item.level)}</td>
+      <td>${item.score || 0}</td>
+      <td>${item.hits || 0}</td>
+      <td>${item.accuracy || 0}%</td>
+    `;
+    refs.leaderboardBody.appendChild(row);
+  });
+}
+
 function handleKeydown(event) {
   if (!state.running) {
     return;
@@ -983,8 +1178,12 @@ function bindEvents() {
     movePlaneBy(0);
   });
   window.addEventListener("focus", () => {
+    loadTheme();
     refreshLevelOptions();
     refreshMembershipTip();
+  });
+  refs.themeSelect?.addEventListener("change", () => {
+    applyTheme(refs.themeSelect.value, true);
   });
   refs.battlefield.addEventListener("mousemove", (event) => {
     if (!state.running) {
@@ -995,14 +1194,17 @@ function bindEvents() {
 }
 
 function bootstrap() {
+  loadTheme();
   bindEvents();
   refreshLevelOptions();
   refreshMembershipTip();
   centerPlane();
   refreshHud();
   renderMissionPanel();
+  renderBossPanel();
   loadDailyTask();
   renderHistory();
+  renderLeaderboard();
   rebuildActiveKeys();
   showOverlay("点击“开始空战”开始练习");
 }
