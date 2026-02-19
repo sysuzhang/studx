@@ -23,16 +23,16 @@
         </div>
       </nav>
       <div class="hero">
-        <h1>键盘操作练习舞台</h1>
-        <p>放大中间键位区，实时判定按键正确性，自动滚动下一批待输入按键，让训练更沉浸。</p>
+        <h1>键盘空战：飞机击打障碍物</h1>
+        <p>障碍物从上方下落，按下已出现的字母即可发射对应子弹击碎目标，连击越高奖励越多。</p>
       </div>
     </header>
 
     <main class="page">
       <section class="panel">
-        <h2>训练设置</h2>
+        <h2>空战设置</h2>
         <div class="form-grid">
-          <label for="keySetSelect">练习键位集</label>
+          <label for="keySetSelect">字母池</label>
           <select id="keySetSelect">
             <option value="home">基础键位（ASDF JKL;）</option>
             <option value="pinyin">拼音高频字母（A-Z）</option>
@@ -46,7 +46,7 @@
             <option value="120">120 秒</option>
           </select>
 
-          <label for="keyboardLevelSelect">训练关卡</label>
+          <label for="keyboardLevelSelect">关卡</label>
           <select id="keyboardLevelSelect">
             <option value="beginner">初级</option>
             <option value="intermediate">中级</option>
@@ -54,64 +54,77 @@
           </select>
         </div>
         <div class="actions">
-          <button id="keyboardStartBtn" type="button">开始练习</button>
-          <button id="keyboardEndBtn" type="button" class="ghost">结束练习</button>
+          <button id="keyboardStartBtn" type="button">开始空战</button>
+          <button id="keyboardEndBtn" type="button" class="ghost">结束空战</button>
           <button id="dailyTaskApplyBtn" type="button" class="ghost">应用每日任务配置</button>
           <a class="link-btn" href="./typing.html">去打字闯关页</a>
         </div>
+        <p class="meta">
+          操作提示：按 A-Z/; 射击对应障碍物；方向键 ←/→ 可移动飞机；也可用鼠标在战场内拖动飞机。
+        </p>
       </section>
 
-      <section class="panel score-board">
+      <section class="panel hud-grid">
         <article class="stat">
-          <p class="label">积分</p>
-          <p id="keyboardScoreValue" class="value">0</p>
+          <p class="label">分数</p>
+          <p id="scoreValue" class="value">0</p>
         </article>
         <article class="stat">
-          <p class="label">目标按键</p>
-          <p id="targetKeyValue" class="value">-</p>
+          <p class="label">生命值</p>
+          <p id="lifeValue" class="value">5</p>
+        </article>
+        <article class="stat">
+          <p class="label">护盾</p>
+          <p id="shieldValue" class="value">0</p>
+        </article>
+        <article class="stat">
+          <p class="label">连击</p>
+          <p id="comboValue" class="value">0</p>
         </article>
         <article class="stat">
           <p class="label">剩余时间</p>
-          <p id="keyboardTimerValue" class="value">60s</p>
-        </article>
-        <article class="stat">
-          <p class="label">当前连对</p>
-          <p id="keyboardStreakValue" class="value">0</p>
+          <p id="timerValue" class="value">60s</p>
         </article>
         <article class="stat">
           <p class="label">命中率</p>
-          <p id="keyboardAccuracyValue" class="value">0%</p>
+          <p id="accuracyValue" class="value">0%</p>
         </article>
         <article class="stat">
           <p class="label">速度（键/分）</p>
-          <p id="keyboardSpeedValue" class="value">0</p>
+          <p id="speedValue" class="value">0</p>
+        </article>
+        <article class="stat">
+          <p class="label">击碎目标</p>
+          <p id="destroyedValue" class="value">0</p>
         </article>
       </section>
 
       <section class="layout">
-        <article class="panel stage-panel">
-          <h2>中间键位区</h2>
-          <div class="key-stage">
-            <p id="targetKeyValueBig" class="target-key">-</p>
-            <p id="fingerHintText" class="meta">手指提示：请点击“开始练习”。</p>
+        <article class="panel battle-panel">
+          <h2>中间空战区</h2>
+          <div class="battle-head">
+            <p id="missionTitle" class="mission-title">趣味任务</p>
+            <p id="missionDesc" class="meta">-</p>
+            <p id="missionStatus" class="meta">状态：待开始</p>
           </div>
 
-          <div class="queue-wrap">
-            <p class="meta">待输入按键流（自动滚动）</p>
-            <div id="keyQueueStream" class="queue-stream"></div>
+          <div id="battlefield" class="battlefield">
+            <div id="targetLayer" class="layer"></div>
+            <div id="bulletLayer" class="layer"></div>
+            <div id="plane" class="plane">✈</div>
+            <div id="battleOverlay" class="battle-overlay">点击“开始空战”开始练习</div>
           </div>
 
-          <p id="keyboardFeedbackText" class="feedback">等待开始...</p>
-          <div id="virtualKeyboard" class="virtual-keyboard"></div>
+          <div class="active-key-wrap">
+            <p class="meta">当前已出现按键（按下即可发射对应子弹）</p>
+            <div id="activeKeyStream" class="active-key-stream"></div>
+          </div>
+
+          <p id="feedbackText" class="feedback">等待开始...</p>
         </article>
 
-        <article class="panel side-panel">
-          <h2>趣味任务与每日任务</h2>
-          <div class="task-box">
-            <p id="keyMissionTitle" class="card-title">趣味任务</p>
-            <p id="keyMissionDesc" class="meta">-</p>
-            <p id="keyMissionStatus" class="meta">状态：待开始</p>
-          </div>
+        <article class="panel">
+          <h2>每日任务与战绩</h2>
           <div class="task-box">
             <p id="dailyTaskTitle" class="card-title">每日键位任务</p>
             <p id="dailyTaskDesc" class="meta">-</p>
@@ -120,67 +133,29 @@
           </div>
 
           <h3>本局摘要</h3>
-          <div id="keyboardSummary" class="summary-box">
-            <p class="empty">尚未开始键位练习。</p>
+          <div id="sessionSummary" class="summary-box">
+            <p class="empty">尚未开始空战。</p>
           </div>
 
-          <h3>近期记录</h3>
+          <h3>近期战绩</h3>
           <div class="history-wrap">
             <table class="history-table">
               <thead>
                 <tr>
                   <th>时间</th>
-                  <th>键位集</th>
+                  <th>字母池</th>
                   <th>关卡</th>
-                  <th>积分</th>
-                  <th>命中</th>
+                  <th>分数</th>
+                  <th>击碎</th>
                   <th>命中率</th>
                   <th>速度</th>
-                  <th>峰值连对</th>
+                  <th>连击峰值</th>
                 </tr>
               </thead>
-              <tbody id="keyboardHistoryBody"></tbody>
+              <tbody id="historyBody"></tbody>
             </table>
           </div>
         </article>
-      </section>
-
-      <section class="panel">
-        <h2>指法教学图</h2>
-        <div class="fingering-chart">
-          <article class="finger-card">
-            <p class="finger-title">左手小指</p>
-            <p class="finger-keys">Q A Z</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">左手无名指</p>
-            <p class="finger-keys">W S X</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">左手中指</p>
-            <p class="finger-keys">E D C</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">左手食指</p>
-            <p class="finger-keys">R F V / T G B</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">右手食指</p>
-            <p class="finger-keys">Y H N / U J M</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">右手中指</p>
-            <p class="finger-keys">I K</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">右手无名指</p>
-            <p class="finger-keys">O L</p>
-          </article>
-          <article class="finger-card">
-            <p class="finger-title">右手小指</p>
-            <p class="finger-keys">P ;</p>
-          </article>
-        </div>
       </section>
     </main>
 
