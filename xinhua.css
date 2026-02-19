@@ -130,6 +130,41 @@ select {
   align-items: center;
 }
 
+.alpha-row {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.initial-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.initial-btn {
+  border: 1px solid #d5e2f8;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #334155;
+  padding: 3px 9px;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.initial-btn.active {
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+  background: #e9f0ff;
+  font-weight: 700;
+}
+
+.initial-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .actions {
   margin-top: 10px;
   display: flex;
@@ -239,6 +274,17 @@ button.ghost {
   font-weight: 700;
 }
 
+.poly-badge {
+  display: inline-flex;
+  margin-left: 6px;
+  border-radius: 999px;
+  border: 1px solid #c7d9fb;
+  padding: 1px 7px;
+  font-size: 11px;
+  color: #1d4ed8;
+  background: #eef4ff;
+}
+
 .detail-tags {
   margin: 0;
   color: #334155;
@@ -250,6 +296,38 @@ button.ghost {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.pronunciation-switch {
+  margin-top: 8px;
+  border: 1px solid #dbe7fb;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.pron-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pron-tab {
+  border: 1px solid #d2e2fc;
+  border-radius: 999px;
+  background: #fff;
+  color: #1e3a8a;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pron-tab.active {
+  border-color: #1d4ed8;
+  background: #e9f1ff;
+  font-weight: 700;
 }
 
 .link-btn {
