@@ -8,6 +8,10 @@ const refs = {
   detailChar: document.getElementById("detailChar"),
   detailPinyin: document.getElementById("detailPinyin"),
   detailMeaning: document.getElementById("detailMeaning"),
+  pictographScript: document.getElementById("pictographScript"),
+  pictographImage: document.getElementById("pictographImage"),
+  pictographNote: document.getElementById("pictographNote"),
+  pictographSource: document.getElementById("pictographSource"),
   wordList: document.getElementById("wordList"),
   idiomList: document.getElementById("idiomList"),
   writerTarget: document.getElementById("writerTarget"),
@@ -51,6 +55,33 @@ function escapeHtml(text) {
   });
 }
 
+function buildPictographFallback(char) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#eaf2ff" />
+          <stop offset="100%" stop-color="#f8fbff" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="118" height="118" rx="16" fill="url(#g)" stroke="#dbe7fb"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+            font-size="54" fill="#334155" font-family="KaiTi, STKaiti, serif">${escapeHtml(char || "字")}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function setImageWithFallback(imgNode, src, char) {
+  const fallback = buildPictographFallback(char);
+  imgNode.onerror = () => {
+    if (imgNode.src !== fallback) {
+      imgNode.src = fallback;
+    }
+  };
+  imgNode.src = src || fallback;
+}
+
 function updateWorksheetLink(chars) {
   const text = chars.join("");
   if (!text) {
@@ -71,10 +102,24 @@ function renderCharList(list) {
     const card = document.createElement("button");
     card.type = "button";
     card.className = `char-card${item.char === state.selectedChar ? " active" : ""}`;
-    card.innerHTML = `
-      <div class="char">${item.char}</div>
-      <div class="mini">${escapeHtml(item.pinyin)}</div>
-    `;
+
+    const thumb = document.createElement("img");
+    thumb.className = "thumb";
+    thumb.alt = `${item.char} 象形图案`;
+    thumb.loading = "lazy";
+    setImageWithFallback(thumb, item.pictograph?.image, item.char);
+
+    const charNode = document.createElement("div");
+    charNode.className = "char";
+    charNode.textContent = item.char;
+
+    const mini = document.createElement("div");
+    mini.className = "mini";
+    mini.textContent = item.pinyin;
+
+    card.appendChild(thumb);
+    card.appendChild(charNode);
+    card.appendChild(mini);
     card.addEventListener("click", () => selectChar(item.char));
     refs.charList.appendChild(card);
   });
@@ -102,6 +147,23 @@ function renderWords(words) {
     li.innerHTML = `<span class="word">${escapeHtml(item.word)}</span>：${escapeHtml(item.meaning)}`;
     refs.wordList.appendChild(li);
   });
+}
+
+function renderPictograph(item) {
+  const pictograph = item.pictograph || {};
+  refs.pictographScript.textContent = pictograph.script || "字形图";
+  refs.pictographNote.textContent =
+    pictograph.note || "图案用于辅助理解字源和形义关联。";
+  refs.pictographImage.alt = `${item.char} ${pictograph.script || "字形"}图案`;
+  setImageWithFallback(refs.pictographImage, pictograph.image, item.char);
+
+  if (pictograph.source) {
+    refs.pictographSource.href = pictograph.source;
+    refs.pictographSource.classList.remove("hidden");
+  } else {
+    refs.pictographSource.href = "#";
+    refs.pictographSource.classList.add("hidden");
+  }
 }
 
 function renderIdioms(idioms) {
@@ -199,6 +261,7 @@ function renderCharDetail(item) {
   refs.detailChar.textContent = item.char;
   refs.detailPinyin.textContent = item.pinyin;
   refs.detailMeaning.textContent = item.meaning;
+  renderPictograph(item);
   renderWords(item.words || []);
   renderIdioms(item.idioms || []);
   createWriter(item.char);
@@ -243,6 +306,11 @@ function filterLibrary() {
     refs.detailChar.textContent = "-";
     refs.detailPinyin.textContent = "-";
     refs.detailMeaning.textContent = "当前维度暂无汉字，请调整筛选条件。";
+    refs.pictographScript.textContent = "-";
+    refs.pictographNote.textContent = "请选择汉字后查看对应象形图案。";
+    refs.pictographSource.href = "#";
+    refs.pictographSource.classList.add("hidden");
+    setImageWithFallback(refs.pictographImage, "", "字");
     refs.wordList.innerHTML = "<li>暂无词组</li>";
     refs.idiomList.innerHTML = `<p class="empty">暂无成语故事。</p>`;
     refs.writerTarget.innerHTML = "";

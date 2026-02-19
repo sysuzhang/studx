@@ -535,3 +535,175 @@ window.HANZI_LIBRARY = [
     ],
   },
 ];
+
+window.HANZI_PICTOGRAPH_MAP = {
+  人: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/c/cd/%E4%BA%BA-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E4%BA%BA-oracle.svg",
+    note: "早期字形像侧立之人，体现“人”的象形来源。",
+  },
+  口: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/9/99/%E5%8F%A3-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%8F%A3-oracle.svg",
+    note: "字形接近口部轮廓，属于典型象形字。",
+  },
+  山: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/6/6b/%E5%B1%B1-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%B1%B1-oracle.svg",
+    note: "峰峦起伏的形态非常直观，便于理解“山”字本义。",
+  },
+  水: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/7/75/%E6%B0%B4-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%B0%B4-oracle.svg",
+    note: "线条表现流水分支，体现“水流”形象。",
+  },
+  日: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/4/44/%E6%97%A5-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%97%A5-oracle.svg",
+    note: "圆中有点的结构常用来表示太阳。",
+  },
+  月: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/9/94/%E6%9C%88-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%9C%88-oracle.svg",
+    note: "弯月轮廓演变为“月”字，形义关联明显。",
+  },
+  木: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/e/e9/%E6%9C%A8-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%9C%A8-oracle.svg",
+    note: "树干与枝杈的组合形成“木”字雏形。",
+  },
+  火: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/4/40/%E7%81%AB-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E7%81%AB-oracle.svg",
+    note: "火焰上扬的姿态在古文字中保留明显。",
+  },
+  学: {
+    script: "甲骨文（繁体：學）",
+    image: "https://upload.wikimedia.org/wikipedia/commons/2/24/%E5%AD%B8-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%AD%B8-oracle.svg",
+    note: "采用“學”古文字字形，展示学习含义的早期表达。",
+  },
+  友: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/f/f8/%E5%8F%8B-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%8F%8B-oracle.svg",
+    note: "古字形常体现并肩协助之意，贴合“友”字语义。",
+  },
+  家: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/1/12/%E5%AE%B6-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%AE%B6-oracle.svg",
+    note: "古文字中可见“宀”与“豕”要素，反映“家”字来源。",
+  },
+  书: {
+    script: "篆书（繁体：書）",
+    image: "https://upload.wikimedia.org/wikipedia/commons/9/9e/%E6%9B%B8-seal.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%9B%B8-seal.svg",
+    note: "采用“書”篆书字形，帮助理解“书写”意义演变。",
+  },
+  春: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/c/cd/%E6%98%A5-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%98%A5-oracle.svg",
+    note: "字形体现季节更替中的生长意象。",
+  },
+  风: {
+    script: "篆书（繁体：風）",
+    image: "https://upload.wikimedia.org/wikipedia/commons/3/3f/%E9%A2%A8-seal.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E9%A2%A8-seal.svg",
+    note: "采用“風”篆书字形，古今写法存在繁简差异。",
+  },
+  明: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/4/4a/%E6%98%8E-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%98%8E-oracle.svg",
+    note: "“日月相照”是“明”字常见字源解释。",
+  },
+  德: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/3/31/%E5%BE%B7-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%BE%B7-oracle.svg",
+    note: "古文字结构较复杂，适合结合释义理解字义演化。",
+  },
+  信: {
+    script: "字形演示图",
+    image: "https://upload.wikimedia.org/wikipedia/commons/a/a7/%E4%BF%A1-order.gif",
+    source: "https://commons.wikimedia.org/wiki/File:%E4%BF%A1-order.gif",
+    note: "当前以字形演示图补充展示，帮助记忆“信”字结构。",
+  },
+  志: {
+    script: "字形参考图",
+    image: "https://upload.wikimedia.org/wikipedia/commons/1/11/%E5%BF%97-bw.png",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%BF%97-bw.png",
+    note: "当前以字形参考图展示，后续可继续补充古文字版本。",
+  },
+  勤: {
+    script: "字形结构图",
+    image:
+      "https://upload.wikimedia.org/wikipedia/commons/f/fb/%E5%8B%A4_-_U%2B052E4-_KanjiVG_stroke_order.svg",
+    source:
+      "https://commons.wikimedia.org/wiki/File:%E5%8B%A4_-_U%2B052E4-_KanjiVG_stroke_order.svg",
+    note: "当前公开古文字资源较少，先提供结构图用于形体识记。",
+  },
+  诚: {
+    script: "篆书（繁体：誠）",
+    image: "https://upload.wikimedia.org/wikipedia/commons/2/21/%E8%AA%A0-seal.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E8%AA%A0-seal.svg",
+    note: "采用“誠”篆书字形，体现繁简字形关联。",
+  },
+  和: {
+    script: "简牍字形",
+    image: "https://upload.wikimedia.org/wikipedia/commons/5/5d/%E5%92%8C-slip.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E5%92%8C-slip.svg",
+    note: "简牍写法可用于观察“和”字在历史中的形体变化。",
+  },
+  智: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/3/31/%E6%99%BA-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%99%BA-oracle.svg",
+    note: "古字形强调构件组合，有助于理解“智”的义素。",
+  },
+  礼: {
+    script: "甲骨文（繁体：禮）",
+    image: "https://upload.wikimedia.org/wikipedia/commons/b/b9/%E8%B1%8A-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E8%B1%8A-oracle.svg",
+    note: "礼字古形常与“禮/豐”相关，体现礼仪文化来源。",
+  },
+  思: {
+    script: "大篆",
+    image: "https://upload.wikimedia.org/wikipedia/commons/3/32/%E6%80%9D-bigseal.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%80%9D-bigseal.svg",
+    note: "大篆字形可用于对比现代“思”字结构。",
+  },
+  行: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/8/8f/%E8%A1%8C-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E8%A1%8C-oracle.svg",
+    note: "古字形像道路交汇，贴合“行走/行动”含义。",
+  },
+  远: {
+    script: "甲骨文（繁体：遠）",
+    image: "https://upload.wikimedia.org/wikipedia/commons/d/d1/%E9%81%A0-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E9%81%A0-oracle.svg",
+    note: "采用“遠”古形，帮助理解“辶”相关语义。",
+  },
+  新: {
+    script: "甲骨文",
+    image: "https://upload.wikimedia.org/wikipedia/commons/d/dd/%E6%96%B0-oracle.svg",
+    source: "https://commons.wikimedia.org/wiki/File:%E6%96%B0-oracle.svg",
+    note: "古文字展示“新”字构件来源与组合方式。",
+  },
+};
+
+window.HANZI_LIBRARY = window.HANZI_LIBRARY.map((item) => ({
+  ...item,
+  pictograph: window.HANZI_PICTOGRAPH_MAP[item.char] || null,
+}));

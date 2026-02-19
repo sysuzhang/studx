@@ -158,7 +158,11 @@ button {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
+  color: var(--text);
   padding: 8px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
   text-align: center;
   cursor: pointer;
 }
@@ -172,6 +176,15 @@ button {
   font-size: 34px;
   line-height: 1.2;
   font-family: "KaiTi", "STKaiti", serif;
+}
+
+.char-card .thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid #d9e2f2;
+  background: #f8fbff;
 }
 
 .char-card .mini {
@@ -220,6 +233,66 @@ button {
   margin: 0;
   color: #334155;
   line-height: 1.6;
+}
+
+.pictograph-panel {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: #f9fbff;
+}
+
+.pictograph-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pictograph-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.script-tag {
+  font-size: 12px;
+  color: #1e40af;
+  background: #e8efff;
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.pictograph-body {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.pictograph-image {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #dbe6f8;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.source-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #1d4ed8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.source-link.hidden {
+  display: none;
 }
 
 .word-list {
@@ -303,6 +376,10 @@ button {
   .writer-target {
     width: 100%;
     max-width: 260px;
+  }
+
+  .pictograph-body {
+    grid-template-columns: 1fr;
   }
 }
 
