@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小学语文课本 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./textbook.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./typing.html">打字闯关</a>
+          <a href="./keyboard.html">键盘练习</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html">汉字总览</a>
+          <a href="./xinhua.html">新华字典</a>
+          <a href="./textbook.html" class="active">小学语文</a>
+          <a href="./pricing.html">订阅中心</a>
+          <a href="./auth.html">登录</a>
+          <a href="./teacher.html">教师端</a>
+          <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html">用户中心</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>小学语文课本学习频道（1-6年级）</h1>
+        <p>覆盖一年级到六年级语文课本主题学习：课文朗读、生字词、思考题、任务清单与字帖联动。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel filter-panel">
+        <h2>选择课本范围</h2>
+        <div class="filter-grid">
+          <label for="gradeSelect">年级</label>
+          <select id="gradeSelect"></select>
+
+          <label for="termSelect">学期</label>
+          <select id="termSelect"></select>
+
+          <label for="searchInput">检索课文</label>
+          <input id="searchInput" type="text" placeholder="按课文标题 / 关键词 / 生字检索" />
+        </div>
+        <div class="actions">
+          <button id="prevLessonBtn" type="button" class="ghost">上一课</button>
+          <button id="nextLessonBtn" type="button" class="ghost">下一课</button>
+          <button id="goWorksheetBtn" type="button">本课生字生成字帖</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <article class="panel side-panel">
+          <h2>课文目录</h2>
+          <p id="catalogMeta" class="meta">加载中...</p>
+          <div id="catalogList" class="catalog-list"></div>
+          <h3>学习进度</h3>
+          <div id="progressBox" class="progress-box"></div>
+        </article>
+
+        <article class="panel detail-panel">
+          <div class="lesson-head">
+            <div>
+              <h2 id="lessonTitle">请选择课文</h2>
+              <p id="lessonMeta" class="meta">-</p>
+            </div>
+            <div class="actions compact">
+              <button id="readBtn" type="button" class="ghost">朗读课文</button>
+              <button id="markDoneBtn" type="button">标记本课已掌握</button>
+              <button id="addCharsBtn" type="button" class="ghost">生字加入字帖收藏</button>
+            </div>
+          </div>
+
+          <section>
+            <h3>课文内容</h3>
+            <div id="lessonText" class="lesson-text"></div>
+          </section>
+
+          <section>
+            <h3>本课生字</h3>
+            <div id="focusChars" class="char-grid"></div>
+          </section>
+
+          <section>
+            <h3>重点词语</h3>
+            <ul id="keywordList" class="keyword-list"></ul>
+          </section>
+
+          <section class="split">
+            <div>
+              <h3>思考题</h3>
+              <ol id="questionList" class="question-list"></ol>
+            </div>
+            <div>
+              <h3>学习任务</h3>
+              <div id="taskList" class="task-list"></div>
+            </div>
+          </section>
+
+          <p id="actionTip" class="meta">提示：可将本课生字一键加入字帖工坊进行书写巩固。</p>
+        </article>
+      </section>
+    </main>
+
+    <script src="./learning-store.js"></script>
+    <script src="./hanzi-data.js"></script>
+    <script src="./primary-textbook-data.js"></script>
+    <script src="./textbook.js" defer></script>
+  </body>
+</html>
