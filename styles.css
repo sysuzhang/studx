@@ -197,6 +197,23 @@ button.ghost {
   user-select: none;
 }
 
+.char-pill.with-remove {
+  width: auto;
+  min-width: 34px;
+  padding: 0 8px;
+  gap: 5px;
+  font-size: 16px;
+}
+
+.char-pill .remove {
+  border: 0;
+  background: transparent;
+  color: #475569;
+  padding: 0;
+  line-height: 1;
+  font-size: 13px;
+}
+
 .char-pill.active {
   border-color: var(--brand);
   color: var(--brand);

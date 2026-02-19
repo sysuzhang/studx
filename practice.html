@@ -17,6 +17,7 @@
           <a href="./calendar.html">学习日历</a>
           <a href="./overview.html">汉字总览</a>
           <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html">用户中心</a>
         </div>
       </div>
       <div class="hero">
@@ -66,9 +67,12 @@
                 <div>
                   <p id="detailPinyin" class="pinyin">-</p>
                   <p id="detailMeaning" class="meaning">请选择一个汉字查看详细解释。</p>
-                  <button id="speakCurrentBtn" type="button" class="audio-btn">
-                    朗读当前汉字
-                  </button>
+                  <div class="study-actions">
+                    <button id="speakCurrentBtn" type="button" class="audio-btn">朗读当前汉字</button>
+                    <button id="addToWorksheetBtn" type="button" class="inline-audio-btn">加入字帖</button>
+                    <a id="openWorksheetLink" class="source-link" href="./worksheet.html">打开字帖工坊</a>
+                  </div>
+                  <p id="worksheetCartTip" class="meta">字帖收藏：0 字</p>
                 </div>
               </div>
               <div class="follow-panel">
@@ -136,6 +140,7 @@
       </section>
     </main>
 
+    <script src="./learning-store.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
     <script src="./hanzi-data.js"></script>
     <script src="./practice.js" defer></script>

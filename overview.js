@@ -13,6 +13,7 @@ const refs = {
 };
 
 const STORAGE_KEY = "studyCalendarCompletionV1";
+const store = window.LearningStore;
 
 const state = {
   library: Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [],
@@ -62,6 +63,13 @@ function isLearnedChar(char) {
   return state.learnedChars.has(char);
 }
 
+function addCharToWorksheet(char, source) {
+  if (!store || typeof store.addWorksheetChars !== "function") {
+    return;
+  }
+  store.addWorksheetChars(char, source || "overview");
+}
+
 function cardStat(label, value, extraClass = "") {
   return `
     <article class="stat">
@@ -78,6 +86,7 @@ function renderStats() {
   const withIdiom = state.library.filter((item) => (item.idioms || []).length > 0).length;
   const withPic = state.library.filter((item) => Boolean(item.pictograph?.image)).length;
   const learned = [...new Set(state.library.map((item) => item.char).filter((char) => isLearnedChar(char)))].length;
+  const cart = store && typeof store.getWorksheetCart === "function" ? store.getWorksheetCart().length : 0;
 
   refs.statsGrid.innerHTML =
     cardStat("字库总汉字", total) +
@@ -85,7 +94,8 @@ function renderStats() {
     cardStat("有词组汉字", withWord) +
     cardStat("有成语汉字", withIdiom) +
     cardStat("有象形图汉字", withPic) +
-    cardStat("学习日历已打卡", learned, "status-done");
+    cardStat("学习日历已打卡", learned, "status-done") +
+    cardStat("字帖收藏汉字", cart);
 }
 
 function levelPills(levels) {
@@ -165,6 +175,17 @@ function detailHtml(item) {
           : `<p class="empty">暂无象形图。</p>`
       }
     </div>
+
+    <div class="detail-sub">
+      <h3>快捷操作</h3>
+      <div>
+        <a class="action-link" href="./practice.html?age=${encodeURIComponent(
+          item.ages?.[0] || ""
+        )}&level=${encodeURIComponent(item.levels?.[0] || "")}&char=${encodeURIComponent(item.char)}">去练习</a>
+        <a class="action-link" href="./calendar.html?chars=${encodeURIComponent(item.char)}">入日历</a>
+        <button id="detailAddCartBtn" type="button" class="action-link-btn">加入字帖</button>
+      </div>
+    </div>
   `;
 }
 
@@ -176,6 +197,11 @@ function selectChar(char) {
     return;
   }
   refs.detailBox.innerHTML = detailHtml(item);
+  const addBtn = document.getElementById("detailAddCartBtn");
+  addBtn?.addEventListener("click", () => {
+    addCharToWorksheet(item.char, "overview_detail");
+    renderStats();
+  });
   refs.tableBody.querySelectorAll("tr").forEach((row) => {
     row.classList.toggle("active", row.dataset.char === char);
   });
@@ -219,9 +245,16 @@ function renderTable() {
           item.ages?.[0] || ""
         )}&level=${encodeURIComponent(item.levels?.[0] || "")}&char=${encodeURIComponent(item.char)}">练习</a>
         <a class="action-link" href="./calendar.html?chars=${encodeURIComponent(item.char)}">入日历</a>
+        <a class="action-link add-cart-link" href="#">入字帖</a>
       </td>
     `;
     row.addEventListener("click", (event) => {
+      if (event.target.closest(".add-cart-link")) {
+        event.preventDefault();
+        addCharToWorksheet(item.char, "overview_table");
+        renderStats();
+        return;
+      }
       if (event.target.closest("a")) {
         return;
       }

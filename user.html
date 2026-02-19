@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>用户中心 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./user.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html">汉字总览</a>
+          <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html" class="active">用户中心</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>用户中心</h1>
+        <p>查看学习进度、学习评价、跟读表现与字帖收藏，打造面向外国学习者的个性化中文学习路径。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel">
+        <h2>学习者档案</h2>
+        <div class="form-grid">
+          <label for="displayName">昵称</label>
+          <input id="displayName" type="text" placeholder="例如：Anna" />
+
+          <label for="nativeLanguage">母语</label>
+          <input id="nativeLanguage" type="text" placeholder="例如：English" />
+
+          <label for="country">国家/地区</label>
+          <input id="country" type="text" placeholder="例如：USA" />
+
+          <label for="targetLevel">目标级别</label>
+          <select id="targetLevel">
+            <option value="启蒙">启蒙</option>
+            <option value="HSK1">HSK1</option>
+            <option value="HSK2">HSK2</option>
+            <option value="HSK3">HSK3</option>
+            <option value="HSK4+">HSK4+</option>
+          </select>
+
+          <label for="dailyMinutes">每日学习时长（分钟）</label>
+          <input id="dailyMinutes" type="number" min="10" max="240" value="20" />
+        </div>
+        <label class="textarea-label" for="goals">学习目标</label>
+        <textarea id="goals" rows="3" placeholder="例如：3个月内掌握HSK2常用汉字并能完成基础对话。"></textarea>
+        <div class="actions">
+          <button id="saveProfileBtn" type="button">保存档案</button>
+          <span id="profileSavedTip" class="tip"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>学习进度总览</h2>
+        <div id="statsGrid" class="stats-grid"></div>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <h2>学习评价与建议</h2>
+          <div id="evaluationBox" class="evaluation-box"></div>
+          <div class="quick-links">
+            <a href="./practice.html">继续分级练习</a>
+            <a href="./calendar.html">查看学习日历</a>
+            <a id="goWorksheetLink" href="./worksheet.html">进入字帖工坊</a>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>字帖收藏夹</h2>
+          <p id="cartMeta" class="meta">已收藏 0 个汉字</p>
+          <div id="cartChars" class="cart-chars"></div>
+          <div class="actions">
+            <button id="openWorksheetBtn" type="button">用收藏字生成字帖</button>
+            <button id="clearCartBtn" type="button" class="ghost">清空收藏</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>最近学习活动</h2>
+        <ul id="activityList" class="activity-list"></ul>
+      </section>
+    </main>
+
+    <script src="./learning-store.js"></script>
+    <script src="./hanzi-data.js"></script>
+    <script src="./user.js" defer></script>
+  </body>
+</html>

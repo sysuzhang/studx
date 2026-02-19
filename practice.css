@@ -307,6 +307,28 @@ button {
   cursor: pointer;
 }
 
+.study-actions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.study-actions .audio-btn {
+  margin-top: 0;
+}
+
+.tiny-add-btn {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 3px 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .follow-panel {
   margin-top: 10px;
   border: 1px solid var(--line);

@@ -1,5 +1,10 @@
 const refs = {
   textInput: document.getElementById("textInput"),
+  cartMeta: document.getElementById("cartMeta"),
+  cartChars: document.getElementById("cartChars"),
+  useCartBtn: document.getElementById("useCartBtn"),
+  mergeCartBtn: document.getElementById("mergeCartBtn"),
+  clearCartBtn: document.getElementById("clearCartBtn"),
   gridType: document.getElementById("gridType"),
   repeatCount: document.getElementById("repeatCount"),
   columns: document.getElementById("columns"),
@@ -17,6 +22,7 @@ const refs = {
   loopBtn: document.getElementById("loopBtn"),
   speakBtn: document.getElementById("speakBtn"),
   followBtn: document.getElementById("followBtn"),
+  addCurrentToCartBtn: document.getElementById("addCurrentToCartBtn"),
   quizBtn: document.getElementById("quizBtn"),
   strokeMeta: document.getElementById("strokeMeta"),
   followResult: document.getElementById("followResult"),
@@ -37,6 +43,7 @@ let hanRegex;
 const speechState = { voice: null };
 const followState = { supported: false, recognition: null };
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+const store = window.LearningStore;
 try {
   hanRegex = /\p{Script=Han}/u;
 } catch (error) {
@@ -93,6 +100,44 @@ function resetFollowPanel(char) {
   if (refs.followBtn) {
     refs.followBtn.textContent = "开始跟读";
   }
+}
+
+function getCartChars() {
+  return store && typeof store.getWorksheetCart === "function" ? store.getWorksheetCart() : [];
+}
+
+function refreshCartPanel() {
+  if (!refs.cartMeta || !refs.cartChars) {
+    return;
+  }
+  const cart = getCartChars();
+  refs.cartMeta.textContent = `已收藏 ${cart.length} 个汉字`;
+  refs.cartChars.innerHTML = "";
+  if (!cart.length) {
+    refs.cartChars.innerHTML = `<span class="hint">暂无收藏，可在学习页或本页加入。</span>`;
+    return;
+  }
+  cart.forEach((char) => {
+    const chip = document.createElement("span");
+    chip.className = "char-pill with-remove";
+    chip.innerHTML = `<span>${char}</span><button type="button" class="remove" aria-label="移除 ${char}">×</button>`;
+    chip.querySelector(".remove").addEventListener("click", () => {
+      if (!store) {
+        return;
+      }
+      store.removeWorksheetChar(char);
+      refreshCartPanel();
+    });
+    refs.cartChars.appendChild(chip);
+  });
+}
+
+function addCharsToCart(chars, source) {
+  if (!store || !chars) {
+    return;
+  }
+  store.addWorksheetChars(chars, source || "worksheet");
+  refreshCartPanel();
 }
 
 function stopFollowReading() {
@@ -168,6 +213,15 @@ function setupFollowReading() {
     }
     const compare = evaluateFollowReading(transcript, state.selectedChar, confidence);
     setFollowCompareLine(compare.level, compare.text);
+    if (store && typeof store.appendFollowReadingRecord === "function") {
+      store.appendFollowReadingRecord({
+        char: state.selectedChar,
+        level: compare.level,
+        transcript,
+        confidence,
+        source: "worksheet",
+      });
+    }
   };
 
   recognition.onerror = (event) => {
@@ -484,6 +538,40 @@ function bindEvents() {
 
   refs.followBtn?.addEventListener("click", startFollowReading);
 
+  refs.addCurrentToCartBtn?.addEventListener("click", () => {
+    if (!state.selectedChar) {
+      return;
+    }
+    addCharsToCart(state.selectedChar, "worksheet_current_char");
+  });
+
+  refs.useCartBtn?.addEventListener("click", () => {
+    const cart = getCartChars();
+    if (!cart.length) {
+      return;
+    }
+    refs.textInput.value = cart.join("");
+    regenerate();
+  });
+
+  refs.mergeCartBtn?.addEventListener("click", () => {
+    const cart = getCartChars();
+    if (!cart.length) {
+      return;
+    }
+    const merged = [...new Set([...extractChineseChars(refs.textInput.value), ...cart])];
+    refs.textInput.value = merged.join("");
+    regenerate();
+  });
+
+  refs.clearCartBtn?.addEventListener("click", () => {
+    if (!store) {
+      return;
+    }
+    store.clearWorksheetCart();
+    refreshCartPanel();
+  });
+
   refs.quizBtn.addEventListener("click", () => {
     if (!state.writer || !state.selectedChar) {
       return;
@@ -526,7 +614,13 @@ function bootstrap() {
   setupFollowReading();
   const params = new URLSearchParams(window.location.search);
   const presetChars = extractChineseChars(params.get("chars") || "");
-  refs.textInput.value = presetChars.length ? presetChars.join("") : "永和春风";
+  const cart = getCartChars();
+  refs.textInput.value = presetChars.length
+    ? presetChars.join("")
+    : cart.length
+    ? cart.join("")
+    : "永和春风";
+  refreshCartPanel();
   bindEvents();
   regenerate();
 }

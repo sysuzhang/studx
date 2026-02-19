@@ -11,6 +11,9 @@ const refs = {
   detailPinyin: document.getElementById("detailPinyin"),
   detailMeaning: document.getElementById("detailMeaning"),
   speakCurrentBtn: document.getElementById("speakCurrentBtn"),
+  addToWorksheetBtn: document.getElementById("addToWorksheetBtn"),
+  openWorksheetLink: document.getElementById("openWorksheetLink"),
+  worksheetCartTip: document.getElementById("worksheetCartTip"),
   followStartBtn: document.getElementById("followStartBtn"),
   followStopBtn: document.getElementById("followStopBtn"),
   followStatus: document.getElementById("followStatus"),
@@ -42,6 +45,7 @@ const state = {
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
 const dimensions = window.LEARNING_DIMENSIONS || { ageGroups: [], chineseLevels: [] };
 const speechState = { voice: null };
+const store = window.LearningStore;
 const followState = {
   supported: false,
   listening: false,
@@ -111,6 +115,33 @@ function speakText(text) {
   }
   window.speechSynthesis.speak(utterance);
   return true;
+}
+
+function getCartChars() {
+  return store && typeof store.getWorksheetCart === "function" ? store.getWorksheetCart() : [];
+}
+
+function refreshWorksheetCartTip() {
+  if (!refs.worksheetCartTip) {
+    return;
+  }
+  const cart = getCartChars();
+  refs.worksheetCartTip.textContent = `字帖收藏：${cart.length} 字`;
+  if (refs.openWorksheetLink) {
+    const fallbackChars = state.selectedChar ? state.selectedChar : "";
+    const targetChars = cart.length ? cart.join("") : fallbackChars;
+    refs.openWorksheetLink.href = targetChars
+      ? `./worksheet.html?chars=${encodeURIComponent(targetChars)}`
+      : "./worksheet.html";
+  }
+}
+
+function addCharsToWorksheet(chars, source) {
+  if (!store || !chars || typeof store.addWorksheetChars !== "function") {
+    return;
+  }
+  store.addWorksheetChars(chars, source || "practice");
+  refreshWorksheetCartTip();
 }
 
 function normalizePinyin(pinyin) {
@@ -236,6 +267,15 @@ function setupFollowReading() {
     }
     const compare = evaluateFollowReading(transcript, item, confidence);
     setFollowCompareLine(compare.level, compare.text);
+    if (store && typeof store.appendFollowReadingRecord === "function") {
+      store.appendFollowReadingRecord({
+        char: item.char,
+        level: compare.level,
+        transcript,
+        confidence,
+        source: "practice",
+      });
+    }
   };
 
   recognition.onerror = (event) => {
@@ -299,12 +339,14 @@ function updateWorksheetLink(chars) {
     if (refs.calendarLink) {
       refs.calendarLink.href = "./calendar.html";
     }
+    refreshWorksheetCartTip();
     return;
   }
   refs.worksheetLink.href = `./worksheet.html?chars=${encodeURIComponent(text.slice(0, 60))}`;
   if (refs.calendarLink) {
     refs.calendarLink.href = `./calendar.html?chars=${encodeURIComponent(text.slice(0, 120))}`;
   }
+  refreshWorksheetCartTip();
 }
 
 function renderCharList(list) {
@@ -346,10 +388,20 @@ function renderCharList(list) {
       speakText(item.char);
     });
 
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "tiny-add-btn";
+    addBtn.textContent = "入帖";
+    addBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addCharsToWorksheet(item.char, "practice_char_card");
+    });
+
     const miniRow = document.createElement("div");
     miniRow.className = "mini-row";
     miniRow.appendChild(mini);
     miniRow.appendChild(speakBtn);
+    miniRow.appendChild(addBtn);
 
     card.appendChild(thumb);
     card.appendChild(charNode);
@@ -631,6 +683,12 @@ function bindEvents() {
       speakText(state.selectedChar);
     }
   });
+  refs.addToWorksheetBtn?.addEventListener("click", () => {
+    if (!state.selectedChar) {
+      return;
+    }
+    addCharsToWorksheet(state.selectedChar, "practice_current_char");
+  });
   refs.followStartBtn?.addEventListener("click", startFollowReading);
   refs.followStopBtn?.addEventListener("click", stopFollowReading);
   refs.pinyinToggle?.addEventListener("change", () => {
@@ -698,6 +756,7 @@ function bootstrap() {
   refs.levelSelect.value = "HSK2";
   state.showPinyin = refs.pinyinToggle ? refs.pinyinToggle.checked : true;
   initSelectByQuery();
+  refreshWorksheetCartTip();
   bindEvents();
   filterLibrary();
 }

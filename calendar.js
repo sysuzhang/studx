@@ -16,6 +16,7 @@ const REVIEW_OFFSETS = [0, 1, 2, 4, 7, 15, 30];
 const STAGE_LABELS = ["初学", "复习1", "复习2", "复习3", "复习4", "复习5", "复习6"];
 const STORAGE_KEY = "studyCalendarCompletionV1";
 const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const store = window.LearningStore;
 
 const state = {
   completion: {},
@@ -207,8 +208,22 @@ function createTaskRow(task) {
   checkbox.addEventListener("change", () => {
     if (checkbox.checked) {
       state.completion[task.id] = true;
+      if (store && typeof store.logActivity === "function") {
+        store.logActivity("calendar_task_done", {
+          char: task.char,
+          stage: task.stageLabel,
+          day: String(task.id).split("|")[0],
+        });
+      }
     } else {
       delete state.completion[task.id];
+      if (store && typeof store.logActivity === "function") {
+        store.logActivity("calendar_task_undo", {
+          char: task.char,
+          stage: task.stageLabel,
+          day: String(task.id).split("|")[0],
+        });
+      }
     }
     saveCompletion();
     renderPlan();
@@ -228,11 +243,24 @@ function createTaskRow(task) {
   const spacer = document.createElement("span");
   spacer.className = "task-spacer";
 
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "task-action-btn";
+  addBtn.textContent = "入字帖";
+  addBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (store && typeof store.addWorksheetChars === "function") {
+      store.addWorksheetChars(task.char, "calendar_task");
+    }
+  });
+
   row.appendChild(checkbox);
   row.appendChild(charNode);
   row.appendChild(stage);
   row.appendChild(note);
   row.appendChild(spacer);
+  row.appendChild(addBtn);
   return row;
 }
 

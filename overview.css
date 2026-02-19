@@ -252,6 +252,18 @@ select {
   margin-right: 6px;
 }
 
+.action-link-btn {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .detail-box .empty {
   margin: 0;
   color: #64748b;

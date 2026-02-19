@@ -15,6 +15,7 @@
         <a href="./calendar.html">学习日历</a>
         <a href="./overview.html">汉字总览</a>
         <a href="./worksheet.html" class="active">字帖工坊</a>
+        <a href="./user.html">用户中心</a>
       </div>
       <h1>汉字字帖打印工坊</h1>
       <p>支持自定义字帖生成、A4 打印、汉字笔顺动画演示与笔画顺序查看。</p>
@@ -26,6 +27,17 @@
           <h2>1) 输入练习文字</h2>
           <textarea id="textInput" rows="5" placeholder="请输入要练习的汉字，例如：永和春风"></textarea>
           <p class="hint">将自动过滤非汉字字符。</p>
+        </section>
+
+        <section class="no-print">
+          <h2>1.5) 字帖收藏字</h2>
+          <p id="cartMeta" class="hint">已收藏 0 个汉字</p>
+          <div id="cartChars" class="char-picker"></div>
+          <div class="actions">
+            <button id="useCartBtn" type="button">使用收藏字</button>
+            <button id="mergeCartBtn" type="button" class="ghost">追加到输入框</button>
+            <button id="clearCartBtn" type="button" class="ghost">清空收藏</button>
+          </div>
         </section>
 
         <section>
@@ -87,6 +99,7 @@
                 <button id="loopBtn" type="button">循环演示：关</button>
                 <button id="speakBtn" type="button" class="ghost">朗读汉字</button>
                 <button id="followBtn" type="button" class="ghost">开始跟读</button>
+                <button id="addCurrentToCartBtn" type="button" class="ghost">加入字帖收藏</button>
                 <button id="quizBtn" type="button" class="ghost">手写练习</button>
               </div>
               <p id="strokeMeta" class="hint">请选择一个汉字查看笔画顺序。</p>
@@ -107,6 +120,7 @@
       </section>
     </main>
 
+    <script src="./learning-store.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
     <script src="./app.js" defer></script>
   </body>
