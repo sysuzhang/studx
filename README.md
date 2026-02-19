@@ -117,7 +117,9 @@
 - 商业模式：基础能力免费，进阶能力按月/按年订阅
 - 套餐对比：打印额度、检索额度、键盘高级关卡、字典进阶释义、支持服务
 - 当前套餐看板：显示当日配额消耗
-- 演示环境支持本地模拟开通（便于验证前端分层策略）
+- 真实支付闭环（Stripe）：创建订单 → 跳转支付 → 服务端 Webhook 验签 → 订单状态回写 → 套餐自动生效
+- 订单状态同步：支持支付回跳后主动轮询订单状态，避免仅依赖前端回跳导致状态不一致
+- 支付通道扩展位：已预留微信/支付宝接入入口（当前待配置）
 
 ### 11) 登录体系（`auth.html` + `cloud-sync.js`）
 
@@ -161,6 +163,30 @@ npm run dev
 
 > 该方式同时提供网页静态资源和 `/api/*` 云端接口（登录/同步/教师端）。
 
+#### 如需启用真实支付（Stripe）
+
+1) 复制环境变量模板并填写 Stripe 密钥：
+
+```bash
+cp .env.example .env
+```
+
+2) 启动服务（可通过 shell 导出变量，或使用你习惯的方式注入 `.env`）：
+
+```bash
+APP_BASE_URL=http://localhost:8787 \
+STRIPE_SECRET_KEY=sk_test_xxx \
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx \
+STRIPE_WEBHOOK_SECRET=whsec_xxx \
+npm run dev
+```
+
+3) 本地转发 Stripe Webhook 到服务端（需安装 Stripe CLI）：
+
+```bash
+stripe listen --forward-to localhost:8787/api/payments/stripe/webhook
+```
+
 ### 方式 2：仅静态浏览（不含登录/云同步）
 
 ```bash
@@ -191,6 +217,7 @@ python3 -m http.server 8080
 
 - UI：原生 HTML + CSS + JavaScript
 - 轻量后端：Node.js + Express（`cloud-server.js`）
+- 支付：Stripe Checkout + 服务端 Webhook 验签（`stripe` SDK）
 - 笔顺动画：`hanzi-writer`（CDN）
 - 笔画数据：`hanzi-writer-data`（CDN）
 - 学习字库：本地静态数据 `hanzi-data.js`
@@ -240,6 +267,7 @@ python3 -m http.server 8080
 ├── cloud-server.js
 ├── package.json
 ├── package-lock.json
+├── .env.example
 ├── data/cloud-db.json
 ├── user.html
 ├── user.css

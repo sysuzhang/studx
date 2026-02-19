@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
+const Stripe = require("stripe");
 
 const app = express();
 
@@ -14,15 +15,78 @@ const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const TEACHER_INVITE_CODE = process.env.TEACHER_INVITE_CODE || "TEACHER2026";
 const TEACHER_DEFAULT_USERNAME = process.env.TEACHER_DEFAULT_USERNAME || "teacher";
 const TEACHER_DEFAULT_PASSWORD = process.env.TEACHER_DEFAULT_PASSWORD || "teacher123";
+const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || "";
 
-app.use(express.json({ limit: "2mb" }));
+const BILLING_PLANS = {
+  free: {
+    id: "free",
+    name: "基础版",
+    priceLabel: "¥0",
+    cycle: "free",
+    amountCents: 0,
+    currency: "cny",
+    features: {
+      keyboardAdvancedLevel: false,
+      dictionaryAdvanced: false,
+      prioritySupport: false,
+    },
+  },
+  pro_monthly: {
+    id: "pro_monthly",
+    name: "进阶版（月）",
+    priceLabel: "¥29 / 月",
+    cycle: "monthly",
+    amountCents: 2900,
+    currency: "cny",
+    features: {
+      keyboardAdvancedLevel: true,
+      dictionaryAdvanced: true,
+      prioritySupport: true,
+    },
+  },
+  pro_yearly: {
+    id: "pro_yearly",
+    name: "进阶版（年）",
+    priceLabel: "¥299 / 年",
+    cycle: "yearly",
+    amountCents: 29900,
+    currency: "cny",
+    features: {
+      keyboardAdvancedLevel: true,
+      dictionaryAdvanced: true,
+      prioritySupport: true,
+    },
+  },
+};
+
+const BILLING_PLAN_ORDER = ["free", "pro_monthly", "pro_yearly"];
+const BILLING_EXTEND_MS = {
+  monthly: 31 * 24 * 3600 * 1000,
+  yearly: 366 * 24 * 3600 * 1000,
+};
+
+const stripeClient = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+
+app.use(
+  express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => {
+      if (req.originalUrl === "/api/payments/stripe/webhook") {
+        req.rawBody = Buffer.from(buf);
+      }
+    },
+  })
+);
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
   if (!fs.existsSync(DB_PATH)) {
-    const seed = { users: [], sessions: [], syncRecords: [] };
+    const seed = { users: [], sessions: [], syncRecords: [], orders: [], paymentEvents: [] };
     fs.writeFileSync(DB_PATH, JSON.stringify(seed, null, 2), "utf8");
   }
 }
@@ -40,9 +104,11 @@ function readDb() {
       users: safeArray(parsed.users),
       sessions: safeArray(parsed.sessions),
       syncRecords: safeArray(parsed.syncRecords),
+      orders: safeArray(parsed.orders),
+      paymentEvents: safeArray(parsed.paymentEvents),
     };
   } catch (error) {
-    return { users: [], sessions: [], syncRecords: [] };
+    return { users: [], sessions: [], syncRecords: [], orders: [], paymentEvents: [] };
   }
 }
 
@@ -93,6 +159,73 @@ function publicUser(user) {
   };
 }
 
+function normalizePlanId(planId) {
+  return BILLING_PLANS[planId] ? planId : "free";
+}
+
+function getPlanById(planId) {
+  return BILLING_PLANS[normalizePlanId(planId)];
+}
+
+function listBillingPlans() {
+  return BILLING_PLAN_ORDER.map((id) => BILLING_PLANS[id]).filter(Boolean);
+}
+
+function sanitizeOrderForClient(order) {
+  if (!order) {
+    return null;
+  }
+  return {
+    id: order.id,
+    userId: order.userId,
+    provider: order.provider,
+    planId: order.planId,
+    amountCents: order.amountCents,
+    currency: order.currency,
+    status: order.status,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    paidAt: order.paidAt || 0,
+    checkoutUrl: order.checkoutUrl || "",
+    checkoutSessionId: order.checkoutSessionId || "",
+  };
+}
+
+function ensureUserBilling(user) {
+  if (!user || typeof user !== "object") {
+    return;
+  }
+  const now = nowTs();
+  const billing = user.billing && typeof user.billing === "object" ? user.billing : {};
+  user.billing = {
+    planId: normalizePlanId(billing.planId || "free"),
+    status: billing.status || "active",
+    activatedAt: Number.isFinite(billing.activatedAt) ? billing.activatedAt : now,
+    expiresAt: Number.isFinite(billing.expiresAt) ? billing.expiresAt : null,
+    updatedAt: Number.isFinite(billing.updatedAt) ? billing.updatedAt : now,
+    source: billing.source || "system_default",
+    latestOrderId: billing.latestOrderId || "",
+  };
+}
+
+function ensureAllUserBilling(db) {
+  db.users.forEach((user) => ensureUserBilling(user));
+}
+
+function getPublicSubscription(user) {
+  ensureUserBilling(user);
+  return {
+    planId: user.billing.planId,
+    status: user.billing.status,
+    activatedAt: user.billing.activatedAt,
+    expiresAt: user.billing.expiresAt,
+    updatedAt: user.billing.updatedAt,
+    source: user.billing.source,
+    latestOrderId: user.billing.latestOrderId || "",
+    features: getPlanById(user.billing.planId).features,
+  };
+}
+
 function cleanExpiredSessions(db) {
   const now = nowTs();
   db.sessions = db.sessions.filter((item) => Number.isFinite(item.expiresAt) && item.expiresAt > now);
@@ -116,14 +249,170 @@ function createSession(db, userId) {
   return row;
 }
 
+function applySubscriptionFromOrder(db, user, order) {
+  if (!user || !order) {
+    return;
+  }
+  ensureUserBilling(user);
+  const plan = getPlanById(order.planId);
+  const now = nowTs();
+  let expiresAt = null;
+  if (plan.cycle === "monthly" || plan.cycle === "yearly") {
+    const base = Number.isFinite(user.billing.expiresAt) && user.billing.expiresAt > now ? user.billing.expiresAt : now;
+    expiresAt = base + (BILLING_EXTEND_MS[plan.cycle] || 0);
+  }
+  user.billing = {
+    ...user.billing,
+    planId: plan.id,
+    status: "active",
+    activatedAt: now,
+    expiresAt,
+    updatedAt: now,
+    source: order.provider || "order_payment",
+    latestOrderId: order.id,
+  };
+  order.appliedAt = now;
+  order.subscriptionPlanId = plan.id;
+  order.subscriptionExpiresAt = expiresAt;
+  order.updatedAt = now;
+  writeDb(db);
+}
+
+function setFreeSubscription(db, user, source) {
+  if (!user) {
+    return;
+  }
+  ensureUserBilling(user);
+  const now = nowTs();
+  user.billing = {
+    ...user.billing,
+    planId: "free",
+    status: "active",
+    activatedAt: now,
+    expiresAt: null,
+    updatedAt: now,
+    source: source || "manual_free",
+  };
+  writeDb(db);
+}
+
+function recordPaymentEvent(db, payload) {
+  db.paymentEvents.push({
+    id: createId("pevt"),
+    eventId: payload.eventId || "",
+    type: payload.type || "unknown",
+    orderId: payload.orderId || "",
+    provider: payload.provider || "",
+    receivedAt: nowTs(),
+    payload: payload.payload || {},
+  });
+  db.paymentEvents = db.paymentEvents.slice(-2000);
+}
+
+function mapCheckoutStatusToOrderStatus(session) {
+  if (!session || typeof session !== "object") {
+    return "pending";
+  }
+  if (session.payment_status === "paid") {
+    return "paid";
+  }
+  if (session.status === "expired") {
+    return "expired";
+  }
+  if (session.status === "complete" && session.payment_status !== "paid") {
+    return "pending_review";
+  }
+  return "pending";
+}
+
+async function createStripeCheckoutOrder(order, user) {
+  if (!stripeClient) {
+    const error = new Error("Stripe 支付未配置，请设置 STRIPE_SECRET_KEY");
+    error.code = "stripe_not_configured";
+    throw error;
+  }
+  const plan = getPlanById(order.planId);
+  if (plan.amountCents <= 0) {
+    const error = new Error("当前套餐无需支付");
+    error.code = "invalid_amount";
+    throw error;
+  }
+  const successUrl = `${APP_BASE_URL}/pricing.html?payment=success&orderId=${encodeURIComponent(order.id)}&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${APP_BASE_URL}/pricing.html?payment=cancelled&orderId=${encodeURIComponent(order.id)}`;
+  const session = await stripeClient.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: plan.currency,
+          unit_amount: plan.amountCents,
+          product_data: {
+            name: `汉字学习平台 ${plan.name}`,
+            description: `订阅方案：${plan.priceLabel}`,
+          },
+        },
+      },
+    ],
+    metadata: {
+      orderId: order.id,
+      userId: user.id,
+      username: user.username,
+      planId: plan.id,
+    },
+    client_reference_id: user.id,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    locale: "zh",
+  });
+  return session;
+}
+
+async function syncOrderWithStripe(db, order) {
+  if (!order || order.provider !== "stripe" || !order.checkoutSessionId || !stripeClient) {
+    return order;
+  }
+  const session = await stripeClient.checkout.sessions.retrieve(order.checkoutSessionId);
+  const mappedStatus = mapCheckoutStatusToOrderStatus(session);
+  if (mappedStatus !== order.status) {
+    order.status = mappedStatus;
+    order.updatedAt = nowTs();
+  }
+  if (mappedStatus === "paid" && !Number.isFinite(order.paidAt)) {
+    order.paidAt = nowTs();
+    order.updatedAt = nowTs();
+    const user = db.users.find((item) => item.id === order.userId);
+    if (user) {
+      applySubscriptionFromOrder(db, user, order);
+    }
+  } else {
+    writeDb(db);
+  }
+  return order;
+}
+
+function findOrderByStripeSession(db, checkoutSessionId, metadata) {
+  if (!checkoutSessionId) {
+    return null;
+  }
+  let order = db.orders.find((item) => item.checkoutSessionId === checkoutSessionId);
+  if (!order && metadata?.orderId) {
+    order = db.orders.find((item) => item.id === metadata.orderId);
+  }
+  return order || null;
+}
+
 function ensureSeedTeacher() {
   const db = readDb();
+  ensureAllUserBilling(db);
   const teacherName = normalizeUsername(TEACHER_DEFAULT_USERNAME);
   if (!teacherName) {
     return;
   }
   const exists = db.users.some((item) => item.username === teacherName);
   if (exists) {
+    writeDb(db);
     return;
   }
   const pass = createPasswordRecord(TEACHER_DEFAULT_PASSWORD);
@@ -134,6 +423,15 @@ function ensureSeedTeacher() {
     role: "teacher",
     password: pass,
     createdAt: nowTs(),
+    billing: {
+      planId: "free",
+      status: "active",
+      activatedAt: nowTs(),
+      expiresAt: null,
+      updatedAt: nowTs(),
+      source: "teacher_seed",
+      latestOrderId: "",
+    },
   });
   writeDb(db);
   // eslint-disable-next-line no-console
@@ -159,6 +457,20 @@ function authRequired(req, res, next) {
     db.sessions = db.sessions.filter((item) => item.id !== session.id);
     writeDb(db);
     return res.status(401).json({ message: "账户不存在，请重新登录" });
+  }
+  ensureUserBilling(user);
+  const now = nowTs();
+  if (
+    user.billing.planId !== "free" &&
+    Number.isFinite(user.billing.expiresAt) &&
+    user.billing.expiresAt <= now
+  ) {
+    user.billing.planId = "free";
+    user.billing.status = "expired";
+    user.billing.updatedAt = now;
+    user.billing.expiresAt = null;
+    user.billing.source = "auto_expire";
+    writeDb(db);
   }
   req.db = db;
   req.auth = { user, session };
@@ -276,6 +588,15 @@ app.post("/api/auth/register", (req, res) => {
     role,
     password: createPasswordRecord(password),
     createdAt: nowTs(),
+    billing: {
+      planId: "free",
+      status: "active",
+      activatedAt: nowTs(),
+      expiresAt: null,
+      updatedAt: nowTs(),
+      source: "signup",
+      latestOrderId: "",
+    },
   };
   db.users.push(user);
   const session = createSession(db, user.id);
@@ -317,6 +638,220 @@ app.get("/api/auth/me", authRequired, (req, res) => {
       expiresAt: req.auth.session.expiresAt,
     },
   });
+});
+
+app.get("/api/billing/plans", (_req, res) => {
+  const providers = {
+    stripe: {
+      enabled: Boolean(stripeClient && STRIPE_PUBLISHABLE_KEY),
+      publishableKey: STRIPE_PUBLISHABLE_KEY || "",
+      label: "Stripe（卡支付）",
+    },
+    wechat: {
+      enabled: false,
+      label: "微信支付（待配置）",
+    },
+    alipay: {
+      enabled: false,
+      label: "支付宝（待配置）",
+    },
+  };
+  res.json({
+    plans: listBillingPlans(),
+    providers,
+  });
+});
+
+app.get("/api/billing/subscription", authRequired, (req, res) => {
+  const user = req.auth.user;
+  ensureUserBilling(user);
+  writeDb(req.db);
+  res.json({
+    subscription: getPublicSubscription(user),
+    plan: getPlanById(user.billing.planId),
+  });
+});
+
+app.post("/api/billing/subscription/change", authRequired, (req, res) => {
+  const planId = normalizePlanId(req.body?.planId);
+  if (planId !== "free") {
+    return res.status(400).json({ message: "付费套餐请通过支付订单开通" });
+  }
+  setFreeSubscription(req.db, req.auth.user, "manual_downgrade");
+  res.json({
+    ok: true,
+    subscription: getPublicSubscription(req.auth.user),
+    plan: getPlanById("free"),
+  });
+});
+
+app.post("/api/billing/orders/create", authRequired, async (req, res) => {
+  try {
+    const user = req.auth.user;
+    ensureUserBilling(user);
+    const planId = normalizePlanId(req.body?.planId);
+    const provider = String(req.body?.provider || "stripe").trim().toLowerCase();
+    const plan = getPlanById(planId);
+
+    if (planId === "free") {
+      setFreeSubscription(req.db, user, "free_switch");
+      return res.json({
+        ok: true,
+        immediate: true,
+        subscription: getPublicSubscription(user),
+        plan,
+      });
+    }
+
+    if (!["stripe", "wechat", "alipay"].includes(provider)) {
+      return res.status(400).json({ message: "不支持的支付通道" });
+    }
+    if (provider !== "stripe") {
+      return res.status(501).json({ message: "该支付通道暂未配置，可先使用 Stripe 测试闭环" });
+    }
+
+    const order = {
+      id: createId("ord"),
+      userId: user.id,
+      provider,
+      planId: plan.id,
+      amountCents: plan.amountCents,
+      currency: plan.currency,
+      status: "created",
+      createdAt: nowTs(),
+      updatedAt: nowTs(),
+      paidAt: null,
+      checkoutSessionId: "",
+      checkoutUrl: "",
+      paymentIntentId: "",
+    };
+
+    const session = await createStripeCheckoutOrder(order, user);
+    order.checkoutSessionId = session.id;
+    order.checkoutUrl = session.url || "";
+    order.paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : "";
+    order.status = mapCheckoutStatusToOrderStatus(session);
+    order.updatedAt = nowTs();
+    req.db.orders.push(order);
+    writeDb(req.db);
+    return res.json({
+      ok: true,
+      order: sanitizeOrderForClient(order),
+      checkoutUrl: order.checkoutUrl,
+      providerInfo: {
+        provider,
+        publishableKey: STRIPE_PUBLISHABLE_KEY || "",
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: `创建订单失败：${error.message}` });
+  }
+});
+
+app.get("/api/billing/orders", authRequired, async (req, res) => {
+  const userId = req.auth.user.id;
+  const rows = req.db.orders
+    .filter((item) => item.userId === userId)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 20);
+  for (const row of rows) {
+    if (row.provider === "stripe" && row.status !== "paid" && row.status !== "expired" && stripeClient) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await syncOrderWithStripe(req.db, row);
+      } catch (error) {
+        // Ignore transient provider sync failure in list endpoint.
+      }
+    }
+  }
+  const currentSub = getPublicSubscription(req.auth.user);
+  res.json({
+    rows: rows.map((item) => sanitizeOrderForClient(item)),
+    subscription: currentSub,
+  });
+});
+
+app.get("/api/billing/orders/:orderId", authRequired, async (req, res) => {
+  const orderId = String(req.params.orderId || "");
+  const order = req.db.orders.find((item) => item.id === orderId && item.userId === req.auth.user.id);
+  if (!order) {
+    return res.status(404).json({ message: "订单不存在" });
+  }
+  if (order.provider === "stripe" && order.status !== "paid" && order.status !== "expired" && stripeClient) {
+    try {
+      await syncOrderWithStripe(req.db, order);
+    } catch (error) {
+      // Ignore provider polling error and return local state.
+    }
+  }
+  return res.json({
+    order: sanitizeOrderForClient(order),
+    subscription: getPublicSubscription(req.auth.user),
+    plan: getPlanById(req.auth.user.billing.planId),
+  });
+});
+
+app.post("/api/payments/stripe/webhook", async (req, res) => {
+  if (!stripeClient || !STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send("stripe webhook not configured");
+  }
+  const signature = String(req.headers["stripe-signature"] || "");
+  if (!signature || !req.rawBody) {
+    return res.status(400).send("missing stripe signature");
+  }
+
+  let event;
+  try {
+    event = stripeClient.webhooks.constructEvent(req.rawBody, signature, STRIPE_WEBHOOK_SECRET);
+  } catch (error) {
+    return res.status(400).send(`invalid signature: ${error.message}`);
+  }
+
+  const db = readDb();
+  ensureAllUserBilling(db);
+  const duplicated = db.paymentEvents.some((item) => item.eventId && item.eventId === event.id);
+  if (duplicated) {
+    return res.json({ received: true, duplicate: true });
+  }
+
+  const sessionObject = event.data?.object;
+  const metadata = sessionObject?.metadata || {};
+  const checkoutSessionId = sessionObject?.id || "";
+  const order = findOrderByStripeSession(db, checkoutSessionId, metadata);
+  const isCheckoutEvent = String(event.type || "").startsWith("checkout.session.");
+
+  if (order && isCheckoutEvent) {
+    const mapped = mapCheckoutStatusToOrderStatus(sessionObject);
+    if (mapped !== order.status) {
+      order.status = mapped;
+      order.updatedAt = nowTs();
+    }
+    order.checkoutSessionId = order.checkoutSessionId || checkoutSessionId;
+    order.paymentIntentId =
+      order.paymentIntentId || (typeof sessionObject?.payment_intent === "string" ? sessionObject.payment_intent : "");
+    if (mapped === "paid" && !Number.isFinite(order.paidAt)) {
+      order.paidAt = nowTs();
+      const user = db.users.find((item) => item.id === order.userId);
+      if (user) {
+        applySubscriptionFromOrder(db, user, order);
+      }
+    }
+  }
+
+  recordPaymentEvent(db, {
+    eventId: event.id,
+    type: event.type,
+    orderId: order?.id || metadata?.orderId || "",
+    provider: "stripe",
+    payload: {
+      checkoutSessionId,
+      paymentStatus: sessionObject?.payment_status || "",
+      status: sessionObject?.status || "",
+      planId: metadata?.planId || "",
+    },
+  });
+  writeDb(db);
+  return res.json({ received: true });
 });
 
 app.get("/api/sync/status", authRequired, (req, res) => {

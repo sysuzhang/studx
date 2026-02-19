@@ -46,6 +46,16 @@
         <article class="panel">
           <h2>当前套餐与今日配额</h2>
           <div id="currentPlanBox" class="current-plan"></div>
+          <div class="provider-row">
+            <label for="paymentProviderSelect">支付通道</label>
+            <select id="paymentProviderSelect">
+              <option value="stripe">Stripe（卡支付）</option>
+              <option value="wechat">微信支付（待配置）</option>
+              <option value="alipay">支付宝（待配置）</option>
+            </select>
+          </div>
+          <p id="providerMeta" class="tip"></p>
+          <p id="orderMeta" class="tip"></p>
           <p id="actionTip" class="tip"></p>
         </article>
         <article class="panel">
@@ -104,6 +114,7 @@
     </main>
 
     <script src="./learning-store.js"></script>
+    <script src="./cloud-sync.js"></script>
     <script src="./pricing.js" defer></script>
   </body>
 </html>

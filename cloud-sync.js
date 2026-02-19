@@ -210,6 +210,39 @@
     return request(`/api/teacher/students/${encodeURIComponent(studentId)}/report`, { method: "GET" });
   }
 
+  async function getBillingPlans() {
+    return request("/api/billing/plans", { method: "GET" });
+  }
+
+  async function getBillingSubscription() {
+    return request("/api/billing/subscription", { method: "GET" });
+  }
+
+  async function changeBillingSubscription(planId) {
+    return request("/api/billing/subscription/change", {
+      method: "POST",
+      body: { planId: planId || "free" },
+    });
+  }
+
+  async function createBillingOrder(input) {
+    return request("/api/billing/orders/create", {
+      method: "POST",
+      body: {
+        planId: input?.planId || "free",
+        provider: input?.provider || "stripe",
+      },
+    });
+  }
+
+  async function getBillingOrder(orderId) {
+    return request(`/api/billing/orders/${encodeURIComponent(orderId)}`, { method: "GET" });
+  }
+
+  async function listBillingOrders() {
+    return request("/api/billing/orders", { method: "GET" });
+  }
+
   window.CloudSync = {
     API_BASE,
     getToken,
@@ -225,5 +258,11 @@
     applySnapshot,
     getTeacherStudents,
     getTeacherStudentReport,
+    getBillingPlans,
+    getBillingSubscription,
+    changeBillingSubscription,
+    createBillingOrder,
+    getBillingOrder,
+    listBillingOrders,
   };
 })();
