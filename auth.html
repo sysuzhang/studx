@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>登录与账户 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./auth.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./typing.html">打字闯关</a>
+          <a href="./keyboard.html">键盘练习</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html">汉字总览</a>
+          <a href="./xinhua.html">新华字典</a>
+          <a href="./pricing.html">订阅中心</a>
+          <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html">用户中心</a>
+          <a href="./teacher.html">教师端</a>
+          <a href="./auth.html" class="active">登录</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>登录与账户</h1>
+        <p>支持多用户登录。登录后可将学习进度同步到云端，并在多设备间恢复学习记录。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel status-panel">
+        <h2>当前会话状态</h2>
+        <p id="sessionText" class="meta">正在检查登录状态...</p>
+        <div class="actions">
+          <a href="./user.html" class="link-btn">去用户中心同步进度</a>
+          <a href="./teacher.html" class="link-btn">进入教师端</a>
+          <button id="logoutBtn" type="button" class="ghost">退出登录</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <h2>登录</h2>
+          <div class="form-grid">
+            <label for="loginUsername">用户名</label>
+            <input id="loginUsername" type="text" placeholder="例如：anna_01" />
+            <label for="loginPassword">密码</label>
+            <input id="loginPassword" type="password" placeholder="请输入密码" />
+          </div>
+          <div class="actions">
+            <button id="loginBtn" type="button">登录</button>
+            <span id="loginTip" class="tip"></span>
+          </div>
+          <p class="meta">提示：教师可使用教师账号登录后进入“教师端”。</p>
+        </article>
+
+        <article class="panel">
+          <h2>注册（多用户）</h2>
+          <div class="form-grid">
+            <label for="registerUsername">用户名</label>
+            <input id="registerUsername" type="text" placeholder="3-24位小写字母/数字/下划线" />
+            <label for="registerDisplayName">昵称</label>
+            <input id="registerDisplayName" type="text" placeholder="例如：Anna" />
+            <label for="registerPassword">密码</label>
+            <input id="registerPassword" type="password" placeholder="至少 6 位" />
+            <label for="registerRole">角色</label>
+            <select id="registerRole">
+              <option value="student">学生</option>
+              <option value="teacher">教师</option>
+            </select>
+            <label for="inviteCode">教师邀请码</label>
+            <input id="inviteCode" type="text" placeholder="仅教师注册需要填写" />
+          </div>
+          <div class="actions">
+            <button id="registerBtn" type="button">注册并登录</button>
+            <span id="registerTip" class="tip"></span>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>部署提示</h2>
+        <ul>
+          <li>启动命令：<code>npm run dev</code>（默认 <code>http://localhost:8787</code>）。</li>
+          <li>系统会自动创建一个教师示例账号（可通过环境变量修改账号与密码）。</li>
+          <li>建议通过同一 Node 服务打开网页，以使用登录与云同步 API。</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="./cloud-sync.js"></script>
+    <script src="./auth.js" defer></script>
+  </body>
+</html>

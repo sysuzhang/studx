@@ -20,6 +20,8 @@
           <a href="./overview.html">汉字总览</a>
           <a href="./xinhua.html">新华字典</a>
           <a href="./pricing.html">订阅中心</a>
+          <a href="./auth.html">登录</a>
+          <a href="./teacher.html">教师端</a>
           <a href="./worksheet.html">字帖工坊</a>
           <a href="./user.html" class="active">用户中心</a>
         </div>
@@ -79,6 +81,8 @@
             <a href="./calendar.html">查看学习日历</a>
             <a href="./xinhua.html">查询新华字典</a>
             <a href="./pricing.html">管理订阅方案</a>
+            <a href="./auth.html">登录/切换账号</a>
+            <a href="./teacher.html">进入教师端</a>
             <a id="goWorksheetLink" href="./worksheet.html">进入字帖工坊</a>
           </div>
         </article>
@@ -95,11 +99,25 @@
       </section>
 
       <section class="panel">
+        <h2>云端同步进度</h2>
+        <p id="cloudSessionText" class="meta">正在检测登录状态...</p>
+        <p id="cloudSyncMeta" class="meta">云端状态：-</p>
+        <div class="actions">
+          <button id="cloudUploadBtn" type="button">上传本地进度到云端</button>
+          <button id="cloudDownloadBtn" type="button" class="ghost">下载云端进度到本地</button>
+          <button id="cloudRefreshBtn" type="button" class="ghost">刷新云端状态</button>
+          <a href="./auth.html" class="quick-link-btn">去登录页</a>
+        </div>
+        <p id="cloudSyncTip" class="tip"></p>
+      </section>
+
+      <section class="panel">
         <h2>最近学习活动</h2>
         <ul id="activityList" class="activity-list"></ul>
       </section>
     </main>
 
+    <script src="./cloud-sync.js"></script>
     <script src="./learning-store.js"></script>
     <script src="./hanzi-data.js"></script>
     <script src="./user.js" defer></script>

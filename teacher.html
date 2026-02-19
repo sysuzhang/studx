@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>教师端 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./teacher.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./typing.html">打字闯关</a>
+          <a href="./keyboard.html">键盘练习</a>
+          <a href="./calendar.html">学习日历</a>
+          <a href="./overview.html">汉字总览</a>
+          <a href="./xinhua.html">新华字典</a>
+          <a href="./pricing.html">订阅中心</a>
+          <a href="./worksheet.html">字帖工坊</a>
+          <a href="./user.html">用户中心</a>
+          <a href="./auth.html">登录</a>
+          <a href="./teacher.html" class="active">教师端</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>教师端：学生学习报告</h1>
+        <p>查看学生云端同步的学习进度、关键指标与近期活动，支持课堂跟进与个性化辅导。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel">
+        <h2>教师会话</h2>
+        <p id="sessionText" class="meta">正在检查登录状态...</p>
+        <div class="actions">
+          <a href="./auth.html" class="link-btn">去登录页</a>
+          <button id="refreshBtn" type="button">刷新学生数据</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <article class="panel">
+          <h2>学生列表</h2>
+          <div class="table-wrap">
+            <table class="list-table">
+              <thead>
+                <tr>
+                  <th>学生</th>
+                  <th>最近同步</th>
+                  <th>已学汉字</th>
+                  <th>打字最高分</th>
+                  <th>键盘最高速</th>
+                </tr>
+              </thead>
+              <tbody id="studentListBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>学生报告详情</h2>
+          <div id="reportHead" class="meta">请选择左侧学生查看详情。</div>
+          <div id="statsGrid" class="stats-grid"></div>
+          <h3>近期活动</h3>
+          <ul id="activityList" class="activity-list"></ul>
+        </article>
+      </section>
+    </main>
+
+    <script src="./cloud-sync.js"></script>
+    <script src="./teacher.js" defer></script>
+  </body>
+</html>

@@ -14,11 +14,18 @@ const refs = {
   openWorksheetBtn: document.getElementById("openWorksheetBtn"),
   clearCartBtn: document.getElementById("clearCartBtn"),
   goWorksheetLink: document.getElementById("goWorksheetLink"),
+  cloudSessionText: document.getElementById("cloudSessionText"),
+  cloudSyncMeta: document.getElementById("cloudSyncMeta"),
+  cloudSyncTip: document.getElementById("cloudSyncTip"),
+  cloudUploadBtn: document.getElementById("cloudUploadBtn"),
+  cloudDownloadBtn: document.getElementById("cloudDownloadBtn"),
+  cloudRefreshBtn: document.getElementById("cloudRefreshBtn"),
   activityList: document.getElementById("activityList"),
 };
 
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
 const store = window.LearningStore;
+const cloud = window.CloudSync;
 
 function escapeHtml(text) {
   return String(text ?? "").replace(/[&<>"']/g, (char) => {
@@ -48,6 +55,116 @@ function quotaSummary(limit, used) {
     return `${used} / ∞`;
   }
   return `${used}/${limit}`;
+}
+
+function setCloudTip(text) {
+  if (!refs.cloudSyncTip) {
+    return;
+  }
+  refs.cloudSyncTip.textContent = text;
+}
+
+function setCloudButtonsDisabled(disabled) {
+  if (refs.cloudUploadBtn) {
+    refs.cloudUploadBtn.disabled = disabled;
+  }
+  if (refs.cloudDownloadBtn) {
+    refs.cloudDownloadBtn.disabled = disabled;
+  }
+}
+
+function formatCloudTime(ts) {
+  if (!Number.isFinite(ts) || ts <= 0) {
+    return "-";
+  }
+  return formatTime(ts);
+}
+
+async function refreshCloudPanel() {
+  if (!refs.cloudSessionText || !refs.cloudSyncMeta) {
+    return;
+  }
+  if (!cloud) {
+    refs.cloudSessionText.textContent = "云同步模块未加载。";
+    refs.cloudSyncMeta.textContent = "云端状态：不可用";
+    setCloudButtonsDisabled(true);
+    return;
+  }
+
+  refs.cloudSessionText.textContent = "正在同步会话状态...";
+  refs.cloudSyncMeta.textContent = "云端状态：查询中...";
+  const session = await cloud.getSession();
+  if (!session.loggedIn || !session.user) {
+    refs.cloudSessionText.textContent = "当前未登录。请先前往登录页完成多用户登录。";
+    refs.cloudSyncMeta.textContent = "云端状态：未登录";
+    setCloudButtonsDisabled(true);
+    return;
+  }
+  const roleText = session.user.role === "teacher" ? "教师" : "学生";
+  refs.cloudSessionText.textContent = `当前云端账号：${session.user.username}（${roleText}）`;
+  setCloudButtonsDisabled(false);
+  try {
+    const status = await cloud.getSyncStatus();
+    refs.cloudSyncMeta.textContent = status?.hasSnapshot
+      ? `云端状态：已同步，最近更新时间 ${formatCloudTime(status.updatedAt)}（版本 ${status.version || 1}）`
+      : "云端状态：暂无同步记录";
+  } catch (error) {
+    refs.cloudSyncMeta.textContent = `云端状态：读取失败（${error.message}）`;
+  }
+}
+
+async function uploadCloudProgress() {
+  if (!cloud) {
+    return;
+  }
+  setCloudTip("上传中...");
+  try {
+    const result = await cloud.uploadLocalProgress();
+    if (store && typeof store.logActivity === "function") {
+      store.logActivity("cloud_sync_upload", {
+        version: result.version || 1,
+        updatedAt: result.updatedAt || Date.now(),
+        source: "user_center",
+      });
+    }
+    setCloudTip(`上传完成：版本 ${result.version}，更新时间 ${formatCloudTime(result.updatedAt)}`);
+    renderActivities();
+    await refreshCloudPanel();
+  } catch (error) {
+    setCloudTip(`上传失败：${error.message}`);
+  }
+}
+
+async function downloadCloudProgress() {
+  if (!cloud) {
+    return;
+  }
+  const ok = window.confirm("下载会覆盖当前设备上的学习进度，是否继续？");
+  if (!ok) {
+    return;
+  }
+  setCloudTip("下载中...");
+  try {
+    const result = await cloud.downloadCloudProgress("replace");
+    if (!result?.hasSnapshot) {
+      setCloudTip("云端暂无可下载数据。");
+      await refreshCloudPanel();
+      return;
+    }
+    if (store && typeof store.logActivity === "function") {
+      store.logActivity("cloud_sync_download", {
+        version: result.version || 1,
+        updatedAt: result.updatedAt || Date.now(),
+        source: "user_center",
+      });
+    }
+    setCloudTip(`下载完成：已应用 ${result.applied} 项本地数据。`);
+    loadProfile();
+    renderAll();
+    await refreshCloudPanel();
+  } catch (error) {
+    setCloudTip(`下载失败：${error.message}`);
+  }
 }
 
 function saveProfile() {
@@ -375,6 +492,12 @@ function activityMessage(log) {
       log.payload?.planId || "free"
     }）`;
   }
+  if (log.type === "cloud_sync_upload") {
+    return `上传学习进度到云端（版本 ${log.payload?.version || 1}）`;
+  }
+  if (log.type === "cloud_sync_download") {
+    return `从云端下载学习进度（版本 ${log.payload?.version || 1}）`;
+  }
   return "完成了一次学习操作";
 }
 
@@ -413,6 +536,9 @@ function bindEvents() {
     store.clearWorksheetCart();
     renderAll();
   });
+  refs.cloudUploadBtn?.addEventListener("click", uploadCloudProgress);
+  refs.cloudDownloadBtn?.addEventListener("click", downloadCloudProgress);
+  refs.cloudRefreshBtn?.addEventListener("click", refreshCloudPanel);
 }
 
 function bootstrap() {
@@ -423,6 +549,7 @@ function bootstrap() {
   loadProfile();
   bindEvents();
   renderAll();
+  refreshCloudPanel();
 }
 
 bootstrap();
