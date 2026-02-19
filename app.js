@@ -16,8 +16,11 @@ const refs = {
   animateBtn: document.getElementById("animateBtn"),
   loopBtn: document.getElementById("loopBtn"),
   speakBtn: document.getElementById("speakBtn"),
+  followBtn: document.getElementById("followBtn"),
   quizBtn: document.getElementById("quizBtn"),
   strokeMeta: document.getElementById("strokeMeta"),
+  followResult: document.getElementById("followResult"),
+  followCompare: document.getElementById("followCompare"),
   strokeOrderList: document.getElementById("strokeOrderList"),
 };
 
@@ -27,10 +30,13 @@ const state = {
   writer: null,
   loopMode: false,
   strokeReqId: 0,
+  followListening: false,
 };
 
 let hanRegex;
 const speechState = { voice: null };
+const followState = { supported: false, recognition: null };
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 try {
   hanRegex = /\p{Script=Han}/u;
 } catch (error) {
@@ -62,6 +68,121 @@ function speakText(text) {
   }
   window.speechSynthesis.speak(utterance);
   return true;
+}
+
+function setFollowCompareLine(level, text) {
+  if (!refs.followCompare) {
+    return;
+  }
+  refs.followCompare.className = `hint ${level}`.trim();
+  refs.followCompare.textContent = text;
+}
+
+function resetFollowPanel(char) {
+  if (!refs.followResult || !refs.followCompare) {
+    return;
+  }
+  refs.followResult.className = "hint";
+  refs.followResult.textContent = "识别结果：-";
+  refs.followCompare.className = "hint";
+  refs.followCompare.textContent = followState.supported
+    ? char
+      ? `对比结果：请朗读“${char}”，系统会与标准读音对比。`
+      : "对比结果：请选择一个汉字后开始跟读。"
+    : "对比结果：当前浏览器暂不支持语音识别。";
+  if (refs.followBtn) {
+    refs.followBtn.textContent = "开始跟读";
+  }
+}
+
+function stopFollowReading() {
+  if (followState.recognition && state.followListening) {
+    followState.recognition.stop();
+  }
+}
+
+function evaluateFollowReading(transcript, targetChar, confidence) {
+  const cleaned = String(transcript ?? "").replace(/[，。！？、,.!?;；:：\s]/g, "");
+  if (!cleaned) {
+    return { level: "bad", text: "❌ 未识别到有效内容，请再试一次。" };
+  }
+  const confidenceText =
+    Number.isFinite(confidence) && confidence > 0 ? `（识别置信度 ${Math.round(confidence * 100)}%）` : "";
+  if (cleaned.includes(targetChar)) {
+    return { level: "ok", text: `✅ 与标准读音匹配，识别到了“${targetChar}”${confidenceText}` };
+  }
+  return {
+    level: "bad",
+    text: `❌ 识别为“${cleaned}”，与目标字“${targetChar}”不一致，建议放慢语速重读。${confidenceText}`,
+  };
+}
+
+function startFollowReading() {
+  if (!followState.supported || !followState.recognition || !state.selectedChar) {
+    return;
+  }
+  if (state.followListening) {
+    stopFollowReading();
+    return;
+  }
+  refs.followResult.textContent = "识别结果：识别中...";
+  setFollowCompareLine("warn", "对比结果：请朗读当前汉字...");
+  try {
+    followState.recognition.start();
+  } catch (error) {
+    setFollowCompareLine("bad", "对比结果：语音识别启动失败，请稍后再试。");
+  }
+}
+
+function setupFollowReading() {
+  followState.supported = Boolean(SpeechRecognitionCtor);
+  if (!refs.followBtn) {
+    return;
+  }
+  if (!followState.supported) {
+    refs.followBtn.disabled = true;
+    setFollowCompareLine("warn", "对比结果：当前浏览器暂不支持语音识别。");
+    return;
+  }
+
+  const recognition = new SpeechRecognitionCtor();
+  recognition.lang = "zh-CN";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 3;
+
+  recognition.onstart = () => {
+    state.followListening = true;
+    refs.followBtn.textContent = "停止跟读";
+    setFollowCompareLine("warn", "对比结果：正在收听，请读出当前汉字。");
+  };
+
+  recognition.onresult = (event) => {
+    const result = event.results?.[0]?.[0];
+    const transcript = result?.transcript?.trim() || "";
+    const confidence = Number.isFinite(result?.confidence) ? result.confidence : NaN;
+    refs.followResult.textContent = `识别结果：${transcript || "（未识别）"}`;
+
+    if (!state.selectedChar) {
+      return;
+    }
+    const compare = evaluateFollowReading(transcript, state.selectedChar, confidence);
+    setFollowCompareLine(compare.level, compare.text);
+  };
+
+  recognition.onerror = (event) => {
+    const msg = event?.error || "unknown";
+    setFollowCompareLine("bad", `对比结果：识别异常（${msg}），请重试。`);
+  };
+
+  recognition.onend = () => {
+    state.followListening = false;
+    if (refs.followBtn) {
+      refs.followBtn.textContent = "开始跟读";
+    }
+  };
+
+  followState.recognition = recognition;
 }
 
 function extractChineseChars(text) {
@@ -281,6 +402,7 @@ function updatePickerActive(char) {
 }
 
 function selectChar(char) {
+  stopFollowReading();
   state.selectedChar = char;
   state.loopMode = false;
   refs.loopBtn.textContent = "循环演示：关";
@@ -288,6 +410,7 @@ function selectChar(char) {
   updatePickerActive(char);
   createWriter(char);
   loadStrokeData(char);
+  resetFollowPanel(char);
 }
 
 function regenerate() {
@@ -298,11 +421,13 @@ function regenerate() {
   renderCharPicker(chars);
 
   if (chars.length === 0) {
+    stopFollowReading();
     state.selectedChar = "";
     refs.currentChar.textContent = "-";
     refs.writerTarget.innerHTML = "";
     clearStrokeList();
     setStrokeMeta("请选择一个汉字查看笔画顺序。");
+    resetFollowPanel("");
     return;
   }
 
@@ -357,6 +482,8 @@ function bindEvents() {
     speakText(state.selectedChar);
   });
 
+  refs.followBtn?.addEventListener("click", startFollowReading);
+
   refs.quizBtn.addEventListener("click", () => {
     if (!state.writer || !state.selectedChar) {
       return;
@@ -396,6 +523,7 @@ function bootstrap() {
   if ("speechSynthesis" in window && typeof window.speechSynthesis.addEventListener === "function") {
     window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoice);
   }
+  setupFollowReading();
   const params = new URLSearchParams(window.location.search);
   const presetChars = extractChineseChars(params.get("chars") || "");
   refs.textInput.value = presetChars.length ? presetChars.join("") : "永和春风";

@@ -10,6 +10,11 @@ const refs = {
   detailPinyin: document.getElementById("detailPinyin"),
   detailMeaning: document.getElementById("detailMeaning"),
   speakCurrentBtn: document.getElementById("speakCurrentBtn"),
+  followStartBtn: document.getElementById("followStartBtn"),
+  followStopBtn: document.getElementById("followStopBtn"),
+  followStatus: document.getElementById("followStatus"),
+  followResult: document.getElementById("followResult"),
+  followCompare: document.getElementById("followCompare"),
   pictographScript: document.getElementById("pictographScript"),
   pictographImage: document.getElementById("pictographImage"),
   pictographNote: document.getElementById("pictographNote"),
@@ -35,6 +40,20 @@ const state = {
 const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
 const dimensions = window.LEARNING_DIMENSIONS || { ageGroups: [], chineseLevels: [] };
 const speechState = { voice: null };
+const followState = {
+  supported: false,
+  listening: false,
+  recognition: null,
+};
+const charPinyinMap = new Map(library.map((item) => [item.char, item.pinyin]));
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let hanRegex;
+try {
+  hanRegex = /\p{Script=Han}/u;
+} catch (error) {
+  hanRegex = /[\u3400-\u9fff\uf900-\ufaff]/;
+}
 
 function fillSelect(selectNode, options) {
   selectNode.innerHTML = "";
@@ -90,6 +109,148 @@ function speakText(text) {
   }
   window.speechSynthesis.speak(utterance);
   return true;
+}
+
+function normalizePinyin(pinyin) {
+  return String(pinyin ?? "")
+    .toLowerCase()
+    .replace(/[āáǎà]/g, "a")
+    .replace(/[ōóǒò]/g, "o")
+    .replace(/[ēéěè]/g, "e")
+    .replace(/[īíǐì]/g, "i")
+    .replace(/[ūúǔù]/g, "u")
+    .replace(/[ǖǘǚǜü]/g, "v")
+    .replace(/[^a-zv]/g, "");
+}
+
+function firstHanChar(text) {
+  return [...String(text ?? "")].find((char) => hanRegex.test(char)) || "";
+}
+
+function setFollowCompareLine(level, text) {
+  if (!refs.followCompare) {
+    return;
+  }
+  refs.followCompare.className = `follow-line ${level}`.trim();
+  refs.followCompare.textContent = text;
+}
+
+function resetFollowPanel(item) {
+  if (!refs.followResult || !refs.followStatus || !refs.followCompare) {
+    return;
+  }
+  refs.followResult.textContent = "识别结果：-";
+  refs.followCompare.className = "follow-line";
+  refs.followCompare.textContent = `对比结果：请朗读“${item.char}（${item.pinyin}）”`;
+  refs.followStatus.textContent = followState.supported
+    ? "点击“开始跟读”后，清晰朗读一次当前汉字。"
+    : "当前浏览器暂不支持语音识别，可继续使用“朗读当前汉字”进行听读训练。";
+}
+
+function evaluateFollowReading(transcript, targetItem, confidence) {
+  const cleaned = String(transcript ?? "").replace(/[，。！？、,.!?;；:：\s]/g, "");
+  if (!cleaned) {
+    return { level: "bad", text: "❌ 未识别到清晰内容，请靠近麦克风再试一次。" };
+  }
+
+  const confidenceText =
+    Number.isFinite(confidence) && confidence > 0 ? `（识别置信度 ${Math.round(confidence * 100)}%）` : "";
+
+  if (cleaned.includes(targetItem.char)) {
+    return { level: "ok", text: `✅ 与标准读音匹配，你读出了“${targetItem.char}”${confidenceText}` };
+  }
+
+  const recognizedChar = firstHanChar(cleaned);
+  const recognizedPinyin = normalizePinyin(charPinyinMap.get(recognizedChar));
+  const targetPinyin = normalizePinyin(targetItem.pinyin);
+  if (recognizedChar && recognizedPinyin && recognizedPinyin === targetPinyin) {
+    return {
+      level: "warn",
+      text: `🟡 识别为“${recognizedChar}”，与目标字同音，发音接近${confidenceText}`,
+    };
+  }
+
+  return {
+    level: "bad",
+    text: `❌ 识别为“${cleaned}”，与标准读音差异较大，建议放慢语速重读。${confidenceText}`,
+  };
+}
+
+function stopFollowReading() {
+  if (followState.recognition && followState.listening) {
+    followState.recognition.stop();
+  }
+}
+
+function startFollowReading() {
+  if (!followState.supported || !followState.recognition || !state.selectedChar) {
+    return;
+  }
+  if (followState.listening) {
+    return;
+  }
+  refs.followResult.textContent = "识别结果：识别中...";
+  setFollowCompareLine("warn", "对比结果：请朗读当前汉字...");
+  try {
+    followState.recognition.start();
+  } catch (error) {
+    refs.followStatus.textContent = "语音识别启动失败，请稍后再试。";
+  }
+}
+
+function setupFollowReading() {
+  followState.supported = Boolean(SpeechRecognitionCtor);
+  if (!refs.followStartBtn || !refs.followStopBtn) {
+    return;
+  }
+
+  if (!followState.supported) {
+    refs.followStartBtn.disabled = true;
+    refs.followStopBtn.disabled = true;
+    return;
+  }
+
+  const recognition = new SpeechRecognitionCtor();
+  recognition.lang = "zh-CN";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 3;
+
+  recognition.onstart = () => {
+    followState.listening = true;
+    refs.followStartBtn.textContent = "跟读中...";
+    refs.followStatus.textContent = "正在收听，请读出当前汉字。";
+  };
+
+  recognition.onresult = (event) => {
+    const result = event.results?.[0]?.[0];
+    const transcript = result?.transcript?.trim() || "";
+    const confidence = Number.isFinite(result?.confidence) ? result.confidence : NaN;
+    refs.followResult.textContent = `识别结果：${transcript || "（未识别）"}`;
+
+    const item = state.filtered.find((entry) => entry.char === state.selectedChar);
+    if (!item) {
+      return;
+    }
+    const compare = evaluateFollowReading(transcript, item, confidence);
+    setFollowCompareLine(compare.level, compare.text);
+  };
+
+  recognition.onerror = (event) => {
+    const msg = event?.error || "unknown";
+    refs.followStatus.textContent = `语音识别异常：${msg}`;
+    setFollowCompareLine("bad", "对比结果：本次识别失败，请再试一次。");
+  };
+
+  recognition.onend = () => {
+    followState.listening = false;
+    refs.followStartBtn.textContent = "开始跟读";
+    if (!refs.followStatus.textContent.startsWith("语音识别异常")) {
+      refs.followStatus.textContent = "可继续点击“开始跟读”进行下一次练习。";
+    }
+  };
+
+  followState.recognition = recognition;
 }
 
 function annotateByTarget(text, targetChar, pinyin) {
@@ -373,6 +534,7 @@ function renderDetailText(item) {
     : escapeHtml(item.char);
   refs.detailPinyin.textContent = `拼音：${item.pinyin}`;
   refs.detailMeaning.textContent = item.meaning;
+  resetFollowPanel(item);
   renderPictograph(item);
   renderWords(item.words || [], item.char, item.pinyin);
   renderIdioms(item.idioms || [], item.char, item.pinyin);
@@ -385,6 +547,7 @@ function renderCharDetail(item) {
 }
 
 function selectChar(char) {
+  stopFollowReading();
   state.selectedChar = char;
   state.loopMode = false;
   refs.loopBtn.textContent = "循环：关";
@@ -418,10 +581,18 @@ function filterLibrary() {
   renderCharList(result);
 
   if (!result.length) {
+    stopFollowReading();
     state.selectedChar = "";
     refs.detailChar.textContent = "-";
     refs.detailPinyin.textContent = "-";
     refs.detailMeaning.textContent = "当前维度暂无汉字，请调整筛选条件。";
+    if (refs.followStatus) {
+      refs.followStatus.textContent = "请选择汉字后进行跟读练习。";
+    }
+    if (refs.followResult) {
+      refs.followResult.textContent = "识别结果：-";
+    }
+    setFollowCompareLine("warn", "对比结果：等待选择练习汉字。");
     refs.pictographScript.textContent = "-";
     refs.pictographNote.textContent = "请选择汉字后查看对应象形图案。";
     refs.pictographSource.href = "#";
@@ -446,6 +617,8 @@ function bindEvents() {
       speakText(state.selectedChar);
     }
   });
+  refs.followStartBtn?.addEventListener("click", startFollowReading);
+  refs.followStopBtn?.addEventListener("click", stopFollowReading);
   refs.pinyinToggle?.addEventListener("change", () => {
     state.showPinyin = refs.pinyinToggle.checked;
     renderCharList(state.filtered);
@@ -496,6 +669,7 @@ function bootstrap() {
   if ("speechSynthesis" in window && typeof window.speechSynthesis.addEventListener === "function") {
     window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoice);
   }
+  setupFollowReading();
   fillSelect(refs.ageSelect, dimensions.ageGroups);
   fillSelect(refs.levelSelect, dimensions.chineseLevels);
   if (!dimensions.ageGroups.length || !dimensions.chineseLevels.length) {

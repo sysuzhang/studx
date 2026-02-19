@@ -162,6 +162,18 @@ button.ghost {
   color: var(--muted);
 }
 
+.hint.ok {
+  color: #166534;
+}
+
+.hint.warn {
+  color: #b45309;
+}
+
+.hint.bad {
+  color: #b91c1c;
+}
+
 .char-picker {
   display: flex;
   flex-wrap: wrap;

@@ -306,6 +306,54 @@ button {
   cursor: pointer;
 }
 
+.follow-panel {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fbfdff;
+}
+
+.follow-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.follow-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.follow-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.follow-actions .audio-btn {
+  margin-top: 0;
+}
+
+.follow-line {
+  margin: 6px 0 0;
+  color: #334155;
+  font-size: 13px;
+}
+
+.follow-line.ok {
+  color: #166534;
+}
+
+.follow-line.warn {
+  color: #b45309;
+}
+
+.follow-line.bad {
+  color: #b91c1c;
+}
+
 .pictograph-panel {
   margin-top: 10px;
   border: 1px solid var(--line);
@@ -481,6 +529,11 @@ button {
 
   .pictograph-body {
     grid-template-columns: 1fr;
+  }
+
+  .follow-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
