@@ -1,0 +1,292 @@
+:root {
+  --bg: #f3f6fc;
+  --panel: #fff;
+  --line: #d8e1ef;
+  --text: #0f172a;
+  --muted: #52607a;
+  --brand: #1d4ed8;
+  --brand-soft: #e8efff;
+  --ok: #166534;
+  --warn: #b45309;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.topbar {
+  padding: 18px clamp(16px, 4vw, 48px) 30px;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(103, 232, 249, 0.22), transparent 35%),
+    radial-gradient(circle at 88% 10%, rgba(147, 197, 253, 0.28), transparent 44%),
+    linear-gradient(180deg, #edf3ff 0%, #f4f7ff 100%);
+  border-bottom: 1px solid var(--line);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 800;
+  text-decoration: none;
+  color: #1e3a8a;
+}
+
+.links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.links a {
+  text-decoration: none;
+  color: #1f2937;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.links a.active,
+.links a:hover {
+  background: var(--brand-soft);
+  color: #1d4ed8;
+}
+
+.hero h1 {
+  margin: 16px 0 8px;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.hero p {
+  margin: 0;
+  color: #334155;
+}
+
+.page {
+  padding: 16px clamp(16px, 4vw, 48px) 30px;
+  display: grid;
+  gap: 12px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+h2 {
+  margin: 0 0 10px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr 110px 1fr;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input[type="date"],
+input[type="number"],
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+input[type="checkbox"] {
+  justify-self: start;
+  transform: scale(1.08);
+}
+
+.textarea-label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 88px;
+}
+
+.actions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+button {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: #fff;
+  color: #1f2937;
+  border-color: var(--line);
+}
+
+button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.stat {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9fbff;
+}
+
+.stat .label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stat .value {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.calendar-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.day-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.day-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.day-date {
+  font-weight: 800;
+}
+
+.day-badge {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 8px;
+  color: #1e40af;
+  background: #e8efff;
+}
+
+.task-list {
+  display: grid;
+  gap: 6px;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1f2937;
+  border: 1px solid #e5ebf5;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.task-item.done {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.task-char {
+  width: 24px;
+  font-size: 18px;
+  text-align: center;
+  font-family: "KaiTi", "STKaiti", serif;
+}
+
+.task-stage {
+  color: #475569;
+  min-width: 66px;
+}
+
+.task-spacer {
+  flex: 1;
+}
+
+.task-item.done .task-stage {
+  color: var(--ok);
+}
+
+.empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.status-ok {
+  color: var(--ok);
+}
+
+.status-warn {
+  color: var(--warn);
+}
+
+@media (max-width: 860px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

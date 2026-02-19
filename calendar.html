@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>学习日历 - 汉字学习平台</title>
+    <link rel="stylesheet" href="./calendar.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <nav class="nav">
+        <a href="./index.html" class="brand">汉字学习平台</a>
+        <div class="links">
+          <a href="./index.html">首页</a>
+          <a href="./practice.html">分级练习</a>
+          <a href="./pinyin.html">拼音频道</a>
+          <a href="./calendar.html" class="active">学习日历</a>
+          <a href="./worksheet.html">字帖工坊</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <h1>艾宾浩斯学习日历</h1>
+        <p>按“初学 - 间隔复习”自动生成学习计划，帮助初学者稳步记忆汉字。</p>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel controls">
+        <h2>计划配置</h2>
+        <div class="form-grid">
+          <label for="startDate">开始日期</label>
+          <input id="startDate" type="date" />
+
+          <label for="spanDays">计划天数</label>
+          <input id="spanDays" type="number" min="7" max="120" value="45" />
+
+          <label for="newPerDay">每日新字数</label>
+          <input id="newPerDay" type="number" min="1" max="12" value="2" />
+
+          <label for="showPendingOnly">仅看未完成</label>
+          <input id="showPendingOnly" type="checkbox" />
+        </div>
+
+        <label for="charInput" class="textarea-label">学习字清单（留空则自动使用初学者推荐字）</label>
+        <textarea
+          id="charInput"
+          rows="4"
+          placeholder="例如：人口山水日月木火"
+        ></textarea>
+
+        <div class="actions">
+          <button id="fillBeginnerBtn" type="button" class="ghost">填入初学者推荐字</button>
+          <button id="generateBtn" type="button">生成学习日历</button>
+          <button id="resetProgressBtn" type="button" class="ghost danger">清空完成记录</button>
+        </div>
+      </section>
+
+      <section class="panel summary">
+        <h2>计划总览</h2>
+        <div id="summaryStats" class="summary-stats"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>每日任务</h2>
+          <p id="calendarMeta" class="meta">生成计划后显示。</p>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </section>
+    </main>
+
+    <script src="./hanzi-data.js"></script>
+    <script src="./calendar.js" defer></script>
+  </body>
+</html>

@@ -3,6 +3,7 @@ const refs = {
   levelSelect: document.getElementById("levelSelect"),
   pinyinToggle: document.getElementById("pinyinToggle"),
   generateBtn: document.getElementById("generateBtn"),
+  calendarLink: document.getElementById("calendarLink"),
   worksheetLink: document.getElementById("worksheetLink"),
   resultMeta: document.getElementById("resultMeta"),
   charList: document.getElementById("charList"),
@@ -294,9 +295,15 @@ function updateWorksheetLink(chars) {
   const text = chars.join("");
   if (!text) {
     refs.worksheetLink.href = "./worksheet.html";
+    if (refs.calendarLink) {
+      refs.calendarLink.href = "./calendar.html";
+    }
     return;
   }
   refs.worksheetLink.href = `./worksheet.html?chars=${encodeURIComponent(text.slice(0, 60))}`;
+  if (refs.calendarLink) {
+    refs.calendarLink.href = `./calendar.html?chars=${encodeURIComponent(text.slice(0, 120))}`;
+  }
 }
 
 function renderCharList(list) {
