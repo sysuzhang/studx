@@ -1017,6 +1017,38 @@ function bindEvents() {
   window.addEventListener("focus", loadTheme);
 }
 
+function notifyEmbedHeight() {
+  if (window.top === window.self) {
+    return;
+  }
+  const height = Math.max(
+    document.documentElement?.scrollHeight || 0,
+    document.body?.scrollHeight || 0
+  );
+  window.parent.postMessage(
+    {
+      type: "typingEmbedHeight",
+      height,
+    },
+    "*"
+  );
+}
+
+function setupEmbedAutoResize() {
+  if (window.top === window.self) {
+    return;
+  }
+  const report = () => notifyEmbedHeight();
+  report();
+  window.addEventListener("load", report);
+  window.addEventListener("resize", report);
+  if (typeof ResizeObserver === "function" && document.body && document.documentElement) {
+    const observer = new ResizeObserver(report);
+    observer.observe(document.body);
+    observer.observe(document.documentElement);
+  }
+}
+
 function bootstrap() {
   loadTheme();
   if (refs.leaderboardRange) {
@@ -1037,6 +1069,8 @@ function bootstrap() {
   renderSeasonPanel();
   renderQueueStream();
   updateWorksheetLinkByWrong();
+  setupEmbedAutoResize();
+  notifyEmbedHeight();
 }
 
 bootstrap();

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>键盘练习 - 汉字学习平台</title>
+    <title>打字练习 - 汉字学习平台</title>
     <link rel="stylesheet" href="./keyboard.css" />
   </head>
   <body>
@@ -14,8 +14,7 @@
           <a href="./index.html">首页</a>
           <a href="./practice.html">分级练习</a>
           <a href="./pinyin.html">拼音频道</a>
-          <a href="./typing.html">打字闯关</a>
-          <a href="./keyboard.html" class="active">键盘练习</a>
+          <a href="./keyboard.html" class="active">打字练习</a>
           <a href="./calendar.html">学习日历</a>
           <a href="./overview.html">汉字总览</a>
           <a href="./xinhua.html">新华字典</a>
@@ -28,8 +27,8 @@
         </div>
       </nav>
       <div class="hero">
-        <h1>键盘空战：飞机击打障碍物</h1>
-        <p>障碍物从上方下落，按下已出现的字母即可发射对应子弹击碎目标，连击越高奖励越多。</p>
+        <h1>打字练习（空战键位 + 闯关打字）</h1>
+        <p>以键盘空战为基础，融合汉字/拼音闯关模块，在同一页面完成击键节奏与输入实战训练。</p>
       </div>
     </header>
 
@@ -70,7 +69,7 @@
           <button id="keyboardStartBtn" type="button">开始空战</button>
           <button id="keyboardEndBtn" type="button" class="ghost">结束空战</button>
           <button id="dailyTaskApplyBtn" type="button" class="ghost">应用每日任务配置</button>
-          <a class="link-btn" href="./typing.html">去打字闯关页</a>
+          <a class="link-btn" href="#typingMergeSection">定位闯关模块</a>
         </div>
         <p class="meta">
           操作提示：按 A-Z/; 射击对应障碍物；方向键 ←/→ 可移动飞机；也可用鼠标在战场内拖动飞机。
@@ -193,6 +192,23 @@
             </table>
           </div>
         </article>
+      </section>
+
+      <section id="typingMergeSection" class="panel">
+        <div class="merge-head">
+          <h2>融合模块：闯关打字</h2>
+          <div class="actions compact">
+            <a class="link-btn" href="./typing.html?embed=1" target="_blank" rel="noopener noreferrer">新窗口打开闯关模块</a>
+          </div>
+        </div>
+        <p class="meta">已将闯关打字并入打字练习页，以下为内嵌闯关区（汉字/拼音、赛季、排行榜、错题入字帖）。</p>
+        <iframe
+          id="typingMergeFrame"
+          class="typing-merge-frame"
+          src="./typing.html?embed=1"
+          title="打字练习闯关融合模块"
+          loading="lazy"
+        ></iframe>
       </section>
     </main>
 

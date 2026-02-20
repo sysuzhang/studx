@@ -34,10 +34,10 @@ function activityText(log) {
   const type = log.type || "activity";
   const payload = log.payload || {};
   if (type === "typing_game_finish") {
-    return `完成打字闯关：分数 ${payload.score || 0}，命中率 ${payload.accuracy || 0}%`;
+    return `完成打字练习（闯关）：分数 ${payload.score || 0}，命中率 ${payload.accuracy || 0}%`;
   }
   if (type === "keyboard_practice_finish") {
-    return `完成键盘练习：分数 ${payload.score || 0}，速度 ${payload.speed || 0}`;
+    return `完成打字练习（空战）：分数 ${payload.score || 0}，速度 ${payload.speed || 0}`;
   }
   if (type === "follow_reading") {
     return `完成跟读：${payload.char || "-"}（${payload.level || "记录"}）`;
@@ -81,10 +81,10 @@ function renderStats(stats) {
   const rows = [
     { label: "已学汉字", value: stats.learnedChars || 0 },
     { label: "累计打卡任务", value: stats.completedTasks || 0 },
-    { label: "打字场次", value: stats.typingGames || 0 },
-    { label: "打字最高分", value: stats.typingBestScore || 0 },
-    { label: "键盘场次", value: stats.keyboardSessions || 0 },
-    { label: "键盘最高速", value: stats.keyboardBestSpeed || 0 },
+    { label: "闯关场次", value: stats.typingGames || 0 },
+    { label: "闯关最高分", value: stats.typingBestScore || 0 },
+    { label: "空战场次", value: stats.keyboardSessions || 0 },
+    { label: "空战最高速", value: stats.keyboardBestSpeed || 0 },
     { label: "跟读次数", value: stats.followReadingCount || 0 },
     { label: "跟读准确率", value: `${stats.followReadingAccuracy || 0}%` },
     { label: "日任务完成天数", value: stats.keyboardDailyDoneDays || 0 },

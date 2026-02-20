@@ -22,6 +22,10 @@ body {
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
+html.typing-embed body {
+  background: transparent;
+}
+
 body[data-theme="night"] {
   --bg: #0b1220;
   --panel: #121c2f;
@@ -68,6 +72,10 @@ body[data-theme="sunset"] {
     radial-gradient(circle at 88% 10%, rgba(147, 197, 253, 0.28), transparent 44%),
     linear-gradient(180deg, #edf3ff 0%, #f4f7ff 100%);
   border-bottom: 1px solid var(--line);
+}
+
+html.typing-embed .topbar {
+  display: none;
 }
 
 .nav {
@@ -118,6 +126,10 @@ body[data-theme="sunset"] {
   padding: 16px clamp(16px, 4vw, 48px) 30px;
   display: grid;
   gap: 14px;
+}
+
+html.typing-embed .page {
+  padding: 12px;
 }
 
 .panel {

@@ -272,7 +272,7 @@ function renderStats() {
       <p class="value">${followStats.accuracy}%</p>
     </article>
     <article class="stat">
-      <p class="label">打字闯关场次</p>
+      <p class="label">打字练习-闯关场次</p>
       <p class="value">${typingStats.totalGames}</p>
     </article>
     <article class="stat">
@@ -374,18 +374,18 @@ function evaluateLevel() {
       ? "发音表现较好，可增加词组和短句跟读训练。"
       : "建议放慢语速并跟随“朗读当前汉字”多次模仿。",
     typingStats.totalGames < 3
-      ? "建议每周至少完成 3 局“打字闯关”，同步提升汉字与拼音输入速度。"
+      ? "建议每周至少完成 3 局“打字练习-闯关模块”，同步提升汉字与拼音输入速度。"
       : typingStats.averageAccuracy >= 80
       ? "打字命中率表现优秀，可提高到 90 秒以上挑战并加入词组题。"
       : "打字练习建议从 60 秒短局开始，优先巩固错题并加入字帖反复书写。",
     keyboardStats.totalSessions < 3
-      ? "建议先进行“键盘操作练习”，优先熟悉 ASDF JKL; 基础键位。"
+      ? "建议先进行“打字练习-空战模块”，优先熟悉 ASDF JKL; 基础键位。"
       : keyboardStats.averageSpeed >= 140
-      ? "键位熟练度较好，可在打字闯关中提高节奏并减少跳过。"
+      ? "键位熟练度较好，可在打字练习-闯关模块中提高节奏并减少跳过。"
       : "键位练习可先用 60 秒短局，重点关注目标按键与对应手指。",
     keyboardDailyStats.todayCompleted
-      ? "今日键位任务已完成，可把练习重心切换到分级汉字闯关。"
-      : "建议先在打字闯关页完成“每日键位任务”，形成稳定输入习惯。",
+      ? "今日键位任务已完成，可把练习重心切换到打字练习-闯关模块。"
+      : "建议先在打字练习页完成“每日键位任务”，形成稳定输入习惯。",
     billing?.subscription?.planId === "free"
       ? "你当前使用基础版：如需高频打印字帖或挑战键盘中高级关卡，可在“订阅中心”按需升级。"
       : "你当前已开通进阶版：建议充分使用中高级键位关卡与完整字典释义强化学习效率。",
@@ -461,14 +461,14 @@ function activityMessage(log) {
   }
   if (log.type === "typing_game_finish") {
     const modeText = log.payload?.mode === "pinyin" ? "拼音打字" : "汉字打字";
-    return `完成打字闯关（${modeText}）：得分 ${log.payload?.score ?? 0}，命中率 ${
+    return `完成打字练习（闯关 / ${modeText}）：得分 ${log.payload?.score ?? 0}，命中率 ${
       log.payload?.accuracy ?? 0
     }%`;
   }
   if (log.type === "keyboard_practice_finish") {
     const levelMap = { beginner: "初级", intermediate: "中级", advanced: "高级" };
     const level = levelMap[log.payload?.level] || "练习";
-    return `完成键位练习（${level}）：积分 ${log.payload?.score ?? 0}，命中率 ${log.payload?.accuracy ?? 0}% ，速度 ${
+    return `完成打字练习（空战 / ${level}）：积分 ${log.payload?.score ?? 0}，命中率 ${log.payload?.accuracy ?? 0}% ，速度 ${
       log.payload?.speed ?? 0
     } 键/分`;
   }

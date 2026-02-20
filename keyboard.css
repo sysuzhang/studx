@@ -163,6 +163,10 @@ select {
   gap: 8px;
 }
 
+.actions.compact {
+  margin-top: 0;
+}
+
 button {
   border: 1px solid transparent;
   border-radius: 10px;
@@ -525,6 +529,22 @@ button.ghost {
   color: #64748b;
 }
 
+.merge-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.typing-merge-frame {
+  width: 100%;
+  min-height: 1160px;
+  border: 1px solid #dbe7fb;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
 @keyframes streak-pop {
   0% {
     opacity: 0;
@@ -553,5 +573,14 @@ button.ghost {
 
   .battlefield {
     min-height: 360px;
+  }
+
+  .merge-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .typing-merge-frame {
+    min-height: 980px;
   }
 }

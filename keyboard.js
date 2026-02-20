@@ -37,6 +37,8 @@ const refs = {
   sessionSummary: document.getElementById("sessionSummary"),
   historyBody: document.getElementById("historyBody"),
   leaderboardBody: document.getElementById("leaderboardBody"),
+  typingMergeSection: document.getElementById("typingMergeSection"),
+  typingMergeFrame: document.getElementById("typingMergeFrame"),
 };
 
 const store = window.LearningStore;
@@ -850,6 +852,35 @@ function getInputChar(rawKey) {
   return /[a-z;]/.test(key) ? key : "";
 }
 
+function handleEmbedMessage(event) {
+  const data = event?.data;
+  if (!data || data.type !== "typingEmbedHeight" || !refs.typingMergeFrame) {
+    return;
+  }
+  const nextHeight = Number(data.height);
+  if (!Number.isFinite(nextHeight)) {
+    return;
+  }
+  refs.typingMergeFrame.style.height = `${clamp(nextHeight + 12, 720, 2400)}px`;
+}
+
+function focusTypingMergeSectionIfNeeded() {
+  if (!refs.typingMergeSection) {
+    return;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const section = (params.get("section") || "").toLowerCase();
+  if (section !== "typing" && section !== "challenge") {
+    return;
+  }
+  setTimeout(() => {
+    refs.typingMergeSection.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, 120);
+}
+
 function fireByKey(char) {
   const now = Date.now();
   if (now - state.lastShotTs < 70) {
@@ -1182,6 +1213,7 @@ function bindEvents() {
     refreshLevelOptions();
     refreshMembershipTip();
   });
+  window.addEventListener("message", handleEmbedMessage);
   refs.themeSelect?.addEventListener("change", () => {
     applyTheme(refs.themeSelect.value, true);
   });
@@ -1207,6 +1239,7 @@ function bootstrap() {
   renderLeaderboard();
   rebuildActiveKeys();
   showOverlay("点击“开始空战”开始练习");
+  focusTypingMergeSectionIfNeeded();
 }
 
 bootstrap();
