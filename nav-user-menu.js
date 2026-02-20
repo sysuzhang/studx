@@ -3,6 +3,7 @@
   const USER_KEY = "cloudAuthUserV1";
   const PROFILE_KEY = "userProfileV1";
   const STYLE_ID = "navUserMenuStyleV1";
+  const PRIORITY_CHANNEL_LABELS = ["汉字总览", "拼音频道", "分级练习", "字帖工坊", "小学语文"];
 
   const LEGACY_NAV_PAGES = new Set(["calendar.html", "auth.html", "teacher.html", "user.html"]);
   const USER_SCOPE_PAGES = new Set(["calendar.html", "auth.html", "teacher.html", "user.html"]);
@@ -127,12 +128,45 @@
   }
 
   function removeLegacyLinks(container) {
-    const links = [...container.querySelectorAll("a[href]")];
+    const links = [...container.querySelectorAll(":scope > a[href]")];
     links.forEach((link) => {
       const file = getFileNameFromHref(link.getAttribute("href"));
       if (LEGACY_NAV_PAGES.has(file)) {
         link.remove();
       }
+    });
+  }
+
+  function reorderChannelLinks(container) {
+    const allLinks = [...container.querySelectorAll(":scope > a[href]")];
+    if (!allLinks.length) {
+      return;
+    }
+
+    const selected = new Set();
+    const priorityLinks = [];
+
+    PRIORITY_CHANNEL_LABELS.forEach((label) => {
+      const matched = allLinks.find((link) => {
+        if (selected.has(link)) {
+          return false;
+        }
+        const text = String(link.textContent || "").trim();
+        return text === label;
+      });
+      if (matched) {
+        selected.add(matched);
+        priorityLinks.push(matched);
+      }
+    });
+
+    if (!priorityLinks.length) {
+      return;
+    }
+
+    const others = allLinks.filter((link) => !selected.has(link));
+    [...priorityLinks, ...others].forEach((link) => {
+      container.appendChild(link);
     });
   }
 
@@ -389,6 +423,7 @@
       return;
     }
     containers.forEach((container) => {
+      reorderChannelLinks(container);
       removeLegacyLinks(container);
       mountUserMenu(container, session);
     });
