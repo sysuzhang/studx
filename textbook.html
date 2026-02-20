@@ -129,7 +129,21 @@
                 placeholder="识别文本会显示在这里，也可手动粘贴后点击“生成评分”"
               ></textarea>
               <p id="readingScoreMeta" class="meta">朗读评分：-</p>
+              <p id="paragraphScoreMeta" class="meta">段落评分：-</p>
+              <div id="readingHeatmap" class="heatmap-box"></div>
               <div id="readingDiagnosis" class="diagnosis-box"></div>
+            </article>
+
+            <article class="enhance-card">
+              <h3>错字专属复习小卷（自动生成）</h3>
+              <p id="remedialMeta" class="meta">基于本课小测错题字与朗读错字自动生成专属复习小卷。</p>
+              <div class="actions compact">
+                <button id="genRemedialBtn" type="button">生成复习小卷</button>
+                <button id="submitRemedialBtn" type="button" class="ghost">提交小卷判分</button>
+                <button id="addRemedialCharsBtn" type="button" class="ghost">小卷错字加入字帖</button>
+              </div>
+              <form id="remedialForm" class="quiz-form"></form>
+              <p id="remedialResult" class="meta">小卷结果：-</p>
             </article>
           </section>
 

@@ -513,10 +513,20 @@ function activityMessage(log) {
   if (log.type === "textbook_reading_assess") {
     return `课文朗读评分：${log.payload?.score || 0} 分（错字 ${log.payload?.weakCount || 0}）`;
   }
+  if (log.type === "textbook_remedial_generate") {
+    return `错字复习小卷已生成：${log.payload?.questionCount || 0} 题（错字 ${log.payload?.weakCount || 0}）`;
+  }
+  if (log.type === "textbook_remedial_submit") {
+    return `错字复习小卷：${log.payload?.score || 0} 分（${log.payload?.passed ? "达标" : "待提升"}）`;
+  }
   if (log.type === "textbook_chars_to_worksheet") {
     return `课本生字加入字帖：${log.payload?.count || 0} 字`;
   }
-  if (log.type === "textbook_quiz_wrong_to_worksheet" || log.type === "textbook_reading_weak_to_worksheet") {
+  if (
+    log.type === "textbook_quiz_wrong_to_worksheet" ||
+    log.type === "textbook_reading_weak_to_worksheet" ||
+    log.type === "textbook_remedial_to_worksheet"
+  ) {
     return `课本错字加入字帖：${log.payload?.count || 0} 字`;
   }
   if (log.type === "worksheet_workbook_generate") {

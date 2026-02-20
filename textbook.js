@@ -31,7 +31,15 @@ const refs = {
   readingAddWeakBtn: document.getElementById("readingAddWeakBtn"),
   readingTranscriptInput: document.getElementById("readingTranscriptInput"),
   readingScoreMeta: document.getElementById("readingScoreMeta"),
+  paragraphScoreMeta: document.getElementById("paragraphScoreMeta"),
+  readingHeatmap: document.getElementById("readingHeatmap"),
   readingDiagnosis: document.getElementById("readingDiagnosis"),
+  remedialMeta: document.getElementById("remedialMeta"),
+  genRemedialBtn: document.getElementById("genRemedialBtn"),
+  submitRemedialBtn: document.getElementById("submitRemedialBtn"),
+  addRemedialCharsBtn: document.getElementById("addRemedialCharsBtn"),
+  remedialForm: document.getElementById("remedialForm"),
+  remedialResult: document.getElementById("remedialResult"),
   actionTip: document.getElementById("actionTip"),
 };
 
@@ -51,11 +59,14 @@ const state = {
     taskChecks: {},
     quizScores: {},
     readingReports: {},
+    remedialScores: {},
     updatedAt: 0,
   },
   quizBank: {},
+  remedialBank: {},
   quizWeakChars: [],
   readingWeakChars: [],
+  remedialWeakChars: [],
   reading: {
     supported: false,
     recognition: null,
@@ -91,6 +102,10 @@ const allMeaningPool = [...new Set(allLessons.flatMap((lesson) => (lesson.keywor
 );
 const allSentencePool = [...new Set(allLessons.flatMap((lesson) => lesson.text || []))].filter(Boolean);
 const allPinyinPool = [...new Set([...hanziMap.values()].map((item) => item.pinyin || ""))].filter(Boolean);
+const allKeywordWords = [...new Set(allLessons.flatMap((lesson) => (lesson.keywords || []).map((item) => item.word || "")))].filter(
+  Boolean
+);
+const allHanziPool = [...new Set(hanziLib.map((item) => item?.char).filter((char) => isHanChar(char)))];
 
 function isHanChar(char) {
   return /[\u3400-\u9fff\uf900-\ufaff]/.test(char);
@@ -125,6 +140,7 @@ function createProgressDefaults() {
     taskChecks: {},
     quizScores: {},
     readingReports: {},
+    remedialScores: {},
     updatedAt: 0,
   };
 }
@@ -148,6 +164,10 @@ function safeReadProgress() {
         parsed?.readingReports && typeof parsed.readingReports === "object"
           ? parsed.readingReports
           : defaults.readingReports,
+      remedialScores:
+        parsed?.remedialScores && typeof parsed.remedialScores === "object"
+          ? parsed.remedialScores
+          : defaults.remedialScores,
       updatedAt: Number.isFinite(parsed?.updatedAt) ? parsed.updatedAt : 0,
     };
   } catch (error) {
@@ -334,6 +354,7 @@ function renderProgress() {
   const currentTermDone = state.filteredLessons.filter((item) => isLessonDone(item.id)).length;
   const quizRows = Object.values(state.progress.quizScores || {}).filter((item) => item && item.passed).length;
   const readingRows = Object.values(state.progress.readingReports || {}).filter((item) => item && Number(item.score) >= 80).length;
+  const remedialRows = Object.values(state.progress.remedialScores || {}).filter((item) => item && item.passed).length;
   const latestTs = Number(state.progress.updatedAt) || 0;
   refs.progressBox.innerHTML = `
     <p>当前年级：<strong>${gradeBook?.label || "-"}</strong></p>
@@ -341,6 +362,7 @@ function renderProgress() {
     <p>当前学期完成：<strong>${currentTermDone}/${state.filteredLessons.length || 0}</strong></p>
     <p>小测达标课次：<strong>${quizRows}</strong></p>
     <p>朗读达标课次：<strong>${readingRows}</strong></p>
+    <p>复习小卷达标课次：<strong>${remedialRows}</strong></p>
     <p>最近更新：${latestTs ? new Date(latestTs).toLocaleString("zh-CN") : "暂无"}</p>
   `;
 }
@@ -441,7 +463,7 @@ function renderTasks(lesson) {
 
 function updateActionTip(lesson) {
   const doneText = isLessonDone(lesson.id) ? "当前状态：已掌握 ✅" : "当前状态：待掌握";
-  refs.actionTip.textContent = `${lesson._gradeLabel} ${lesson._term} · ${doneText}。建议：先朗读田字格课文，再做小测与录音评分。`;
+  refs.actionTip.textContent = `${lesson._gradeLabel} ${lesson._term} · ${doneText}。建议：先朗读田字格课文，再看段落热力图定位薄弱段，最后完成错字专属复习小卷。`;
 }
 
 function makeChoiceQuestion(base) {
@@ -668,6 +690,7 @@ function submitQuiz() {
     passed,
     weakCount: state.quizWeakChars.length,
   });
+  generateRemedialSheet({ source: "quiz_auto" });
   updateActionTip(lesson);
   renderProgress();
 }
@@ -698,6 +721,159 @@ function renderChipList(items, emptyText) {
     return `<p>${emptyText}</p>`;
   }
   return `<div class="chip-list">${list.map((item) => `<span class="chip">${item}</span>`).join("")}</div>`;
+}
+
+function getLessonParagraphRows(lesson) {
+  const rows = (lesson.text || [])
+    .map((line, index) => {
+      const text = String(line || "");
+      return {
+        index,
+        text,
+        chars: toHanChars(text),
+      };
+    })
+    .filter((item) => item.chars.length);
+  if (rows.length) {
+    return rows;
+  }
+  const fallbackText = String((lesson.text || []).join(""));
+  const fallbackChars = toHanChars(fallbackText);
+  return fallbackChars.length
+    ? [
+        {
+          index: 0,
+          text: fallbackText || "课文段落",
+          chars: fallbackChars,
+        },
+      ]
+    : [];
+}
+
+function locateParagraphIndexByExpectedPos(boundaries, expectedPos) {
+  if (!boundaries.length) {
+    return -1;
+  }
+  const maxPos = Math.max(0, boundaries[boundaries.length - 1].end - 1);
+  const target = Math.min(Math.max(0, expectedPos), maxPos);
+  for (let i = 0; i < boundaries.length; i += 1) {
+    if (target < boundaries[i].end) {
+      return i;
+    }
+  }
+  return boundaries.length - 1;
+}
+
+function computeParagraphScores(paragraphRows, ops) {
+  if (!paragraphRows.length) {
+    return [];
+  }
+  let cursor = 0;
+  const boundaries = paragraphRows.map((row) => {
+    const start = cursor;
+    cursor += row.chars.length;
+    return {
+      start,
+      end: cursor,
+    };
+  });
+  const scores = paragraphRows.map((row, index) => ({
+    index,
+    text: row.text,
+    expectedCount: row.chars.length,
+    matched: 0,
+    missing: 0,
+    substitutions: 0,
+    extra: 0,
+    weakChars: [],
+    problemCount: 0,
+    problemRate: 0,
+    score: 0,
+    coverage: 0,
+  }));
+  let expectedPos = 0;
+  (ops || []).forEach((op) => {
+    if (op.type === "ins") {
+      const idx = locateParagraphIndexByExpectedPos(boundaries, expectedPos);
+      if (idx >= 0) {
+        scores[idx].extra += 1;
+      }
+      return;
+    }
+    const idx = locateParagraphIndexByExpectedPos(boundaries, expectedPos);
+    if (idx >= 0) {
+      if (op.type === "equal") {
+        scores[idx].matched += 1;
+      } else if (op.type === "del") {
+        scores[idx].missing += 1;
+        if (isHanChar(op.expected)) {
+          scores[idx].weakChars.push(op.expected);
+        }
+      } else if (op.type === "sub") {
+        scores[idx].substitutions += 1;
+        if (isHanChar(op.expected)) {
+          scores[idx].weakChars.push(op.expected);
+        }
+      }
+    }
+    expectedPos += 1;
+  });
+  return scores.map((item) => {
+    const problemCount = item.missing + item.substitutions + item.extra;
+    const penalty = item.substitutions * 0.35 + item.extra * 0.2;
+    const score = Math.max(0, Math.min(100, Math.round(((item.matched - penalty) / Math.max(1, item.expectedCount)) * 100)));
+    const heardCount = item.matched + item.substitutions + item.extra;
+    const coverage = Math.max(0, Math.round((heardCount / Math.max(1, item.expectedCount)) * 100));
+    return {
+      ...item,
+      score,
+      coverage,
+      problemCount,
+      problemRate: Number((problemCount / Math.max(1, item.expectedCount)).toFixed(3)),
+      weakChars: uniqueArray(item.weakChars),
+    };
+  });
+}
+
+function getParagraphHeatLevel(paragraphScore) {
+  if (!paragraphScore) {
+    return "cold";
+  }
+  if (paragraphScore.problemRate >= 0.45 || paragraphScore.score < 55) {
+    return "hot";
+  }
+  if (paragraphScore.problemRate >= 0.25 || paragraphScore.score < 75) {
+    return "warm";
+  }
+  return "cold";
+}
+
+function renderReadingHeatmap(paragraphScores) {
+  if (!refs.paragraphScoreMeta || !refs.readingHeatmap) {
+    return;
+  }
+  if (!Array.isArray(paragraphScores) || !paragraphScores.length) {
+    refs.paragraphScoreMeta.textContent = "段落评分：暂无。";
+    refs.readingHeatmap.innerHTML = `<p class="meta">热力图：请先进行一次朗读评分。</p>`;
+    return;
+  }
+  const worst = [...paragraphScores].sort((a, b) => b.problemRate - a.problemRate || a.score - b.score)[0];
+  refs.paragraphScoreMeta.textContent = `段落评分：问题最多为第 ${worst.index + 1} 段（问题 ${worst.problemCount} 项，得分 ${
+    worst.score
+  } 分）。`;
+  refs.readingHeatmap.innerHTML = paragraphScores
+    .map((item) => {
+      const level = getParagraphHeatLevel(item);
+      const width = Math.max(4, Math.min(100, Math.round(item.problemRate * 100)));
+      return `
+        <div class="heat-row ${level}">
+          <span class="heat-label">第 ${item.index + 1} 段</span>
+          <span class="heat-track"><span class="heat-fill" style="width:${width}%"></span></span>
+          <span class="heat-meta">${item.score} 分 · 问题 ${item.problemCount}</span>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 function alignChars(expectedChars, actualChars) {
@@ -762,13 +938,18 @@ function alignChars(expectedChars, actualChars) {
 }
 
 function evaluateReadingTranscript(lesson, transcript) {
-  const expectedChars = toHanChars((lesson.text || []).join(""));
+  const paragraphRows = getLessonParagraphRows(lesson);
+  const expectedChars = paragraphRows.flatMap((row) => row.chars);
   const actualChars = toHanChars(transcript || "");
   const aligned = alignChars(expectedChars, actualChars);
   const missing = aligned.ops.filter((op) => op.type === "del").map((op) => op.expected);
   const extra = aligned.ops.filter((op) => op.type === "ins").map((op) => op.actual);
   const substitutions = aligned.ops.filter((op) => op.type === "sub");
   const matched = aligned.ops.filter((op) => op.type === "equal").length;
+  const paragraphScores = computeParagraphScores(paragraphRows, aligned.ops);
+  const worstParagraph = paragraphScores.length
+    ? [...paragraphScores].sort((a, b) => b.problemRate - a.problemRate || a.score - b.score)[0]
+    : null;
   const weakChars = uniqueArray([...missing, ...substitutions.map((item) => item.expected)]).filter((char) => isHanChar(char));
   const expectedLen = expectedChars.length || 1;
   const penalty = substitutions.length * 0.35 + extra.length * 0.2;
@@ -784,12 +965,15 @@ function evaluateReadingTranscript(lesson, transcript) {
     substitutions,
     weakChars,
     coverage: Number.isFinite(coverage) ? Math.max(0, coverage) : 0,
+    paragraphScores,
+    worstParagraph,
   };
 }
 
 function renderReadingReport(report) {
   if (!report) {
     refs.readingScoreMeta.textContent = "朗读评分：-";
+    renderReadingHeatmap([]);
     refs.readingDiagnosis.innerHTML = `<p>诊断结果：待生成。</p>`;
     return;
   }
@@ -805,6 +989,7 @@ function renderReadingReport(report) {
     <p>增读字：${report.extra.length}</p>
     ${renderChipList(report.extra, "增读字：无")}
   `;
+  renderReadingHeatmap(report.paragraphScores || []);
 }
 
 function applyReadingScore() {
@@ -836,7 +1021,10 @@ function applyReadingScore() {
     substitutions: report.substitutions.length,
     extra: report.extra.length,
     weakCount: report.weakChars.length,
+    worstParagraphIndex: Number.isFinite(report.worstParagraph?.index) ? report.worstParagraph.index + 1 : 0,
+    paragraphCount: report.paragraphScores?.length || 0,
   });
+  generateRemedialSheet({ source: "reading_auto" });
   updateActionTip(lesson);
   renderProgress();
 }
@@ -855,6 +1043,274 @@ function addReadingWeakCharsToWorksheet() {
   const result = store.addWorksheetChars(chars, "textbook_reading_weak");
   refs.actionTip.textContent = `已将朗读错字加入字帖：${result.added.join("") || chars.join("")}`;
   logTextbookActivity("textbook_reading_weak_to_worksheet", {
+    lessonId: lesson.id,
+    chars,
+    count: chars.length,
+  });
+}
+
+function getLessonWeakChars(lesson) {
+  if (!lesson) {
+    return [];
+  }
+  const quizWeak = state.progress.quizScores?.[lesson.id]?.weakChars || [];
+  const readingWeak = state.progress.readingReports?.[lesson.id]?.weakChars || [];
+  return uniqueArray([...state.quizWeakChars, ...state.readingWeakChars, ...quizWeak, ...readingWeak].filter((char) => isHanChar(char)));
+}
+
+function buildRemedialPinyinQuestion(char, index) {
+  const pinyin = hanziMap.get(char)?.pinyin || "";
+  if (!pinyin) {
+    return null;
+  }
+  const distractors = pickRandomDistinct(allPinyinPool, 3, new Set([pinyin]));
+  if (distractors.length < 2) {
+    return null;
+  }
+  return makeChoiceQuestion({
+    id: `remedial_pinyin_${char}_${index}`,
+    type: "remedial_pinyin",
+    prompt: `“${char}”的正确拼音是：`,
+    options: [pinyin, ...distractors],
+    answerIndex: 0,
+    relatedChars: [char],
+    explain: `${char}：${pinyin}`,
+  });
+}
+
+function buildRemedialWordQuestion(lesson, char, index) {
+  const lessonWords = (lesson.keywords || []).map((item) => item.word || "").filter((word) => word.includes(char));
+  const globalWords = allKeywordWords.filter((word) => word.includes(char));
+  const correct = lessonWords[0] || globalWords[0] || "";
+  if (!correct) {
+    return null;
+  }
+  const distractorPool = allKeywordWords.filter((word) => word && !word.includes(char));
+  const distractors = pickRandomDistinct(distractorPool, 3, new Set([correct]));
+  if (distractors.length < 2) {
+    return null;
+  }
+  return makeChoiceQuestion({
+    id: `remedial_word_${char}_${index}`,
+    type: "remedial_word",
+    prompt: `下列哪个词语包含“${char}”？`,
+    options: [correct, ...distractors],
+    answerIndex: 0,
+    relatedChars: [char],
+    explain: `正确词语：${correct}`,
+  });
+}
+
+function buildRemedialShapeQuestion(char, index) {
+  const distractors = pickRandomDistinct(allHanziPool, 3, new Set([char]));
+  if (distractors.length < 2) {
+    return null;
+  }
+  return makeChoiceQuestion({
+    id: `remedial_shape_${char}_${index}`,
+    type: "remedial_shape",
+    prompt: `下列哪个字是“${char}”？`,
+    options: [char, ...distractors],
+    answerIndex: 0,
+    relatedChars: [char],
+    explain: `目标字：${char}`,
+  });
+}
+
+function buildRemedialSheet(lesson, weakCharsInput) {
+  const weakChars = uniqueArray((weakCharsInput || []).filter((char) => isHanChar(char))).slice(0, 10);
+  const fallbackChars = collectLessonChars(lesson).slice(0, 6);
+  const sourceChars = weakChars.length ? weakChars : fallbackChars;
+  const questions = [];
+  sourceChars.forEach((char, index) => {
+    const q = buildRemedialPinyinQuestion(char, index + 1);
+    if (q) {
+      questions.push(q);
+    }
+  });
+  sourceChars.forEach((char, index) => {
+    const q = buildRemedialWordQuestion(lesson, char, index + 1);
+    if (q) {
+      questions.push(q);
+    }
+  });
+  sourceChars.forEach((char, index) => {
+    const q = buildRemedialShapeQuestion(char, index + 1);
+    if (q) {
+      questions.push(q);
+    }
+  });
+  return {
+    lessonId: lesson.id,
+    createdAt: Date.now(),
+    weakChars,
+    sourceChars,
+    questions: questions.slice(0, Math.min(12, Math.max(4, sourceChars.length * 2))),
+  };
+}
+
+function getRemedialSheetForLesson(lesson, forceNew, weakCharsInput) {
+  if (!lesson) {
+    return null;
+  }
+  if (!forceNew && state.remedialBank[lesson.id]?.questions?.length) {
+    return state.remedialBank[lesson.id];
+  }
+  const sheet = buildRemedialSheet(lesson, weakCharsInput);
+  state.remedialBank[lesson.id] = sheet;
+  return sheet;
+}
+
+function renderRemedialPanel(lesson) {
+  refs.remedialForm.innerHTML = "";
+  const weakChars = getLessonWeakChars(lesson);
+  const sheet = getRemedialSheetForLesson(lesson, false, weakChars);
+  if (!sheet || !sheet.questions.length) {
+    refs.remedialMeta.textContent = "本课暂无可生成的复习小卷题目。";
+    refs.remedialResult.textContent = "小卷结果：当前无法出题。";
+    state.remedialWeakChars = [];
+    return;
+  }
+  state.remedialWeakChars = uniqueArray((sheet.weakChars.length ? sheet.weakChars : sheet.sourceChars).filter((char) => isHanChar(char)));
+  refs.remedialMeta.textContent = `小卷共 ${sheet.questions.length} 题，重点字：${
+    sheet.sourceChars.join("") || "无"
+  }（85 分及以上达标）。`;
+  sheet.questions.forEach((q, idx) => {
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "quiz-item";
+    fieldset.dataset.rindex = `${idx}`;
+    const optionsHtml = q.options
+      .map(
+        (option, optionIndex) => `
+          <label>
+            <input type="radio" name="remedial_${lesson.id}_${idx}" value="${optionIndex}" />
+            <span>${option}</span>
+          </label>
+        `
+      )
+      .join("");
+    fieldset.innerHTML = `
+      <legend>${idx + 1}. ${q.prompt}</legend>
+      <div class="quiz-options">${optionsHtml}</div>
+      <p class="quiz-analysis"></p>
+    `;
+    refs.remedialForm.appendChild(fieldset);
+  });
+  const last = state.progress.remedialScores?.[lesson.id];
+  if (last && Number.isFinite(last.score)) {
+    refs.remedialResult.textContent = `上次小卷：${last.score} 分（${last.correct}/${last.total}），${last.passed ? "已达标" : "待提升"}。`;
+  } else {
+    refs.remedialResult.textContent = "小卷结果：待提交。";
+  }
+}
+
+function generateRemedialSheet(options) {
+  const lesson = getSelectedLesson();
+  if (!lesson) {
+    return null;
+  }
+  const source = options?.source || "manual";
+  const weakChars = getLessonWeakChars(lesson);
+  const sheet = getRemedialSheetForLesson(lesson, true, weakChars);
+  renderRemedialPanel(lesson);
+  logTextbookActivity("textbook_remedial_generate", {
+    lessonId: lesson.id,
+    source,
+    weakCount: weakChars.length,
+    questionCount: sheet?.questions?.length || 0,
+  });
+  if (source === "manual") {
+    refs.remedialResult.textContent = "小卷结果：已重新生成，请提交判分。";
+  }
+  return sheet;
+}
+
+function submitRemedialSheet() {
+  const lesson = getSelectedLesson();
+  if (!lesson) {
+    return;
+  }
+  const sheet = getRemedialSheetForLesson(lesson, false, getLessonWeakChars(lesson));
+  if (!sheet?.questions?.length) {
+    refs.remedialResult.textContent = "小卷结果：当前无题可判。";
+    return;
+  }
+  let answered = 0;
+  let correct = 0;
+  const wrongChars = new Set();
+  sheet.questions.forEach((q, idx) => {
+    const name = `remedial_${lesson.id}_${idx}`;
+    const selected = refs.remedialForm.querySelector(`input[name="${name}"]:checked`);
+    const fieldset = refs.remedialForm.querySelector(`[data-rindex="${idx}"]`);
+    const analysis = fieldset?.querySelector(".quiz-analysis");
+    fieldset?.classList.remove("correct", "wrong");
+    if (!selected) {
+      fieldset?.classList.add("wrong");
+      (q.relatedChars || []).forEach((char) => wrongChars.add(char));
+      if (analysis) {
+        analysis.textContent = `未作答。${q.explain || ""}`;
+      }
+      return;
+    }
+    answered += 1;
+    const selectedIndex = Number.parseInt(selected.value, 10);
+    if (selectedIndex === q.answerIndex) {
+      correct += 1;
+      fieldset?.classList.add("correct");
+      if (analysis) {
+        analysis.textContent = "回答正确。";
+      }
+    } else {
+      fieldset?.classList.add("wrong");
+      (q.relatedChars || []).forEach((char) => wrongChars.add(char));
+      if (analysis) {
+        analysis.textContent = `回答错误，正确答案：${q.options[q.answerIndex] || ""}`;
+      }
+    }
+  });
+  const total = sheet.questions.length;
+  const score = Math.round((correct / Math.max(1, total)) * 100);
+  const passed = score >= 85;
+  state.remedialWeakChars = uniqueArray([...wrongChars].filter((char) => isHanChar(char)));
+  state.progress.remedialScores[lesson.id] = {
+    score,
+    total,
+    correct,
+    answered,
+    passed,
+    wrongChars: state.remedialWeakChars,
+    sourceChars: sheet.sourceChars,
+    ts: Date.now(),
+  };
+  saveProgress();
+  refs.remedialResult.textContent = `小卷结果：${score} 分（答对 ${correct}/${total}，作答 ${answered}/${total}）${
+    passed ? "，已达标 ✅" : "，建议继续针对错字复习"
+  }${state.remedialWeakChars.length ? `；错字：${state.remedialWeakChars.join("")}` : ""}`;
+  logTextbookActivity("textbook_remedial_submit", {
+    lessonId: lesson.id,
+    score,
+    total,
+    correct,
+    passed,
+    wrongCount: state.remedialWeakChars.length,
+  });
+  renderProgress();
+}
+
+function addRemedialCharsToWorksheet() {
+  const lesson = getSelectedLesson();
+  if (!lesson) {
+    return;
+  }
+  const fallback = state.progress.remedialScores?.[lesson.id]?.wrongChars || getLessonWeakChars(lesson);
+  const chars = uniqueArray((state.remedialWeakChars.length ? state.remedialWeakChars : fallback).filter((char) => isHanChar(char)));
+  if (!chars.length || !store || typeof store.addWorksheetChars !== "function") {
+    refs.actionTip.textContent = "当前小卷暂无错字可加入字帖。";
+    return;
+  }
+  const result = store.addWorksheetChars(chars, "textbook_remedial_weak");
+  refs.actionTip.textContent = `已将小卷错字加入字帖：${result.added.join("") || chars.join("")}`;
+  logTextbookActivity("textbook_remedial_to_worksheet", {
     lessonId: lesson.id,
     chars,
     count: chars.length,
@@ -956,7 +1412,12 @@ function renderLessonDetail() {
     refs.quizForm.innerHTML = "";
     refs.quizResult.textContent = "测评结果：-";
     refs.readingScoreMeta.textContent = "朗读评分：-";
+    refs.paragraphScoreMeta.textContent = "段落评分：-";
+    refs.readingHeatmap.innerHTML = "";
     refs.readingDiagnosis.innerHTML = `<p>诊断结果：-</p>`;
+    refs.remedialForm.innerHTML = "";
+    refs.remedialMeta.textContent = "基于本课小测错题字与朗读错字自动生成专属复习小卷。";
+    refs.remedialResult.textContent = "小卷结果：-";
     return;
   }
   refs.lessonTitle.textContent = lesson.title;
@@ -970,6 +1431,7 @@ function renderLessonDetail() {
   renderTasks(lesson);
   renderQuizPanel(lesson);
   renderReadingPanel(lesson);
+  renderRemedialPanel(lesson);
   updateActionTip(lesson);
 }
 
@@ -1095,6 +1557,9 @@ function bindEvents() {
   refs.readingStopBtn?.addEventListener("click", stopReadingRecord);
   refs.readingScoreBtn?.addEventListener("click", applyReadingScore);
   refs.readingAddWeakBtn?.addEventListener("click", addReadingWeakCharsToWorksheet);
+  refs.genRemedialBtn?.addEventListener("click", () => generateRemedialSheet({ source: "manual" }));
+  refs.submitRemedialBtn?.addEventListener("click", submitRemedialSheet);
+  refs.addRemedialCharsBtn?.addEventListener("click", addRemedialCharsToWorksheet);
 }
 
 function bootstrap() {

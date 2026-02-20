@@ -357,7 +357,7 @@ button.ghost {
 
 .enhance-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 10px;
 }
 
@@ -431,6 +431,60 @@ button.ghost {
   margin: 0;
   font-size: 13px;
   color: #334155;
+}
+
+.heatmap-box {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.heat-row {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.heat-label {
+  color: #334155;
+  font-weight: 700;
+}
+
+.heat-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.heat-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+}
+
+.heat-row.cold .heat-fill {
+  background: #22c55e;
+}
+
+.heat-row.warm .heat-fill {
+  background: #f59e0b;
+}
+
+.heat-row.hot .heat-fill {
+  background: #ef4444;
+}
+
+.heat-meta {
+  color: #64748b;
 }
 
 .chip-list {
