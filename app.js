@@ -10,14 +10,18 @@ const refs = {
   useCartBtn: document.getElementById("useCartBtn"),
   mergeCartBtn: document.getElementById("mergeCartBtn"),
   clearCartBtn: document.getElementById("clearCartBtn"),
+  gradeTemplateSelect: document.getElementById("gradeTemplateSelect"),
   gridType: document.getElementById("gridType"),
   repeatCount: document.getElementById("repeatCount"),
   columns: document.getElementById("columns"),
   cellSize: document.getElementById("cellSize"),
   traceMode: document.getElementById("traceMode"),
   showGuide: document.getElementById("showGuide"),
+  showPinyin: document.getElementById("showPinyin"),
+  templateTip: document.getElementById("templateTip"),
   generateBtn: document.getElementById("generateBtn"),
   printBtn: document.getElementById("printBtn"),
+  exportPdfBtn: document.getElementById("exportPdfBtn"),
   clearBtn: document.getElementById("clearBtn"),
   billingTip: document.getElementById("billingTip"),
   charPickerSection: document.getElementById("charPickerSection"),
@@ -70,6 +74,9 @@ const state = {
   activeWorkbookId: "",
   workbookHistory: [],
   workbookMasteryMap: {},
+  strokePaths: [],
+  strokeHighlightTimer: null,
+  strokeHighlightIndex: -1,
 };
 
 let hanRegex;
@@ -132,6 +139,47 @@ const DEFAULT_LEVELS =
     { value: "HSK3", label: "HSK 3" },
     { value: "HSK4+", label: "HSK 4+" },
   ];
+
+const HANZI_PINYIN_MAP = new Map(
+  (Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [])
+    .filter((item) => item && typeof item === "object" && item.char)
+    .map((item) => [item.char, String(item.pinyin || "").trim()])
+);
+
+const GRADE_TEMPLATE_PRESETS = {
+  custom: {
+    id: "custom",
+    label: "自定义配置",
+    gridType: null,
+    columns: null,
+    cellSize: null,
+    repeatCount: null,
+    showPinyin: false,
+    writingTrack: "hanzi",
+  },
+  g12_tian: {
+    id: "g12_tian",
+    label: "1-2 年级（田字格）",
+    gridType: "tian",
+    columns: 10,
+    cellSize: 60,
+    repeatCount: 10,
+    showPinyin: false,
+    writingTrack: "hanzi",
+  },
+  g36_fourline: {
+    id: "g36_fourline",
+    label: "3-6 年级（四线三格）",
+    gridType: "fourline",
+    columns: 8,
+    cellSize: 66,
+    repeatCount: 8,
+    showPinyin: true,
+    writingTrack: "pinyin",
+  },
+};
+
+const STROKE_HIGHLIGHT_STEP_MS = 760;
 
 function refreshSpeechVoice() {
   if (!("speechSynthesis" in window)) {
@@ -248,6 +296,17 @@ function refreshPracticeModeUI() {
   }
   if (refs.workbookScanSection) {
     refs.workbookScanSection.classList.toggle("hidden", !hanziMode);
+  }
+  if (refs.gradeTemplateSelect) {
+    refs.gradeTemplateSelect.disabled = !hanziMode;
+  }
+  if (refs.showPinyin) {
+    refs.showPinyin.disabled = !hanziMode;
+  }
+  if (refs.templateTip && !hanziMode) {
+    refs.templateTip.textContent = "数学数字模式下不使用年级模板与拼音标注。";
+  } else if (refs.templateTip) {
+    refs.templateTip.textContent = getTemplateTipText(refs.gradeTemplateSelect?.value || "custom");
   }
 }
 
@@ -429,14 +488,89 @@ function chunk(list, size) {
 }
 
 function getWorksheetConfig() {
+  const templateId = refs.gradeTemplateSelect?.value || "custom";
+  const preset = GRADE_TEMPLATE_PRESETS[templateId] || GRADE_TEMPLATE_PRESETS.custom;
+  const rawGridType = refs.gridType.value;
+  const rawRepeatCount = Math.min(Math.max(toInt(refs.repeatCount.value, 10), 2), 24);
+  const rawColumns = Math.min(Math.max(toInt(refs.columns.value, 10), 4), 20);
+  const rawCellSize = Math.min(Math.max(toInt(refs.cellSize.value, 60), 40), 90);
+  const showPinyin = Boolean(refs.showPinyin?.checked);
+  const writingTrack =
+    preset.id === "custom" ? (rawGridType === "fourline" ? "pinyin" : "hanzi") : preset.writingTrack || "hanzi";
+  const templateLabel =
+    preset.id === "custom" && rawGridType === "fourline" ? "自定义（四线三格）" : preset.label;
   return {
-    gridType: refs.gridType.value,
-    repeatCount: Math.min(Math.max(toInt(refs.repeatCount.value, 10), 2), 24),
-    columns: Math.min(Math.max(toInt(refs.columns.value, 10), 4), 20),
-    cellSize: Math.min(Math.max(toInt(refs.cellSize.value, 60), 40), 90),
+    templateId,
+    templateLabel,
+    gridType: preset.gridType || rawGridType,
+    repeatCount: preset.repeatCount || rawRepeatCount,
+    columns: preset.columns || rawColumns,
+    cellSize: preset.cellSize || rawCellSize,
     traceMode: refs.traceMode.value,
     showGuide: refs.showGuide.checked,
+    showPinyin: preset.showPinyin || showPinyin || (preset.id === "custom" && rawGridType === "fourline"),
+    writingTrack,
   };
+}
+
+function getGradeTemplatePreset(templateId) {
+  return GRADE_TEMPLATE_PRESETS[templateId] || GRADE_TEMPLATE_PRESETS.custom;
+}
+
+function getTemplateTipText(templateId) {
+  const preset = getGradeTemplatePreset(templateId);
+  if (preset.id === "custom") {
+    return refs.gridType?.value === "fourline"
+      ? "当前为自定义四线三格，可用于拼音书写与 PDF 导出。"
+      : "模板可一键切换为小学年级常用练习版式，并用于 PDF 导出。";
+  }
+  return `当前模板：${preset.label}。将自动应用 ${
+    preset.gridType === "fourline" ? "四线三格拼音练习" : "田字格汉字练习"
+  }。`;
+}
+
+function applyGradeTemplatePreset(templateId) {
+  const preset = getGradeTemplatePreset(templateId);
+  if (!refs.gradeTemplateSelect) {
+    return preset;
+  }
+  refs.gradeTemplateSelect.value = preset.id;
+  if (preset.id !== "custom") {
+    if (preset.gridType && refs.gridType.value !== preset.gridType) {
+      refs.gridType.value = preset.gridType;
+    }
+    if (Number.isFinite(preset.repeatCount) && refs.repeatCount.value !== String(preset.repeatCount)) {
+      refs.repeatCount.value = String(preset.repeatCount);
+    }
+    if (Number.isFinite(preset.columns) && refs.columns.value !== String(preset.columns)) {
+      refs.columns.value = String(preset.columns);
+    }
+    if (Number.isFinite(preset.cellSize) && refs.cellSize.value !== String(preset.cellSize)) {
+      refs.cellSize.value = String(preset.cellSize);
+    }
+    if (refs.showPinyin) {
+      refs.showPinyin.checked = Boolean(preset.showPinyin);
+    }
+  }
+  if (refs.templateTip) {
+    refs.templateTip.textContent = getTemplateTipText(preset.id);
+  }
+  return preset;
+}
+
+function switchTemplateToCustomOnManualEdit() {
+  if (!refs.gradeTemplateSelect) {
+    return;
+  }
+  if (refs.gradeTemplateSelect.value === "custom") {
+    return;
+  }
+  refs.gradeTemplateSelect.value = "custom";
+  applyGradeTemplatePreset("custom");
+}
+
+function getCharPinyin(char) {
+  return HANZI_PINYIN_MAP.get(char) || "";
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -752,6 +886,7 @@ function initWorkbookSelectors() {
 }
 
 function createWorkbookRecord(input) {
+  const currentConfig = getWorksheetConfig();
   const plan = buildWorkbookCharPlan({
     ageGroup: input.ageGroup,
     level: input.level,
@@ -786,12 +921,16 @@ function createWorkbookRecord(input) {
     cycle: Number.isFinite(input.cycle) ? input.cycle : 1,
     scanSummary: null,
     configSnapshot: {
-      gridType: refs.gridType.value,
-      columns: clampNumber(refs.columns.value, 4, 20, 10),
-      cellSize: clampNumber(refs.cellSize.value, 40, 90, 60),
+      gridType: currentConfig.gridType,
+      columns: currentConfig.columns,
+      cellSize: currentConfig.cellSize,
       traceMode: "trace",
       showGuide: true,
       repeatCount: input.repeatCount,
+      showPinyin: Boolean(currentConfig.showPinyin),
+      templateId: currentConfig.templateId || "custom",
+      templateLabel: currentConfig.templateLabel || "自定义配置",
+      writingTrack: currentConfig.writingTrack || "hanzi",
     },
   };
 }
@@ -811,6 +950,7 @@ function createWorkbookCoverPage(book) {
       <div class="meta-card">每字格数：${book.repeatCount}</div>
       <div class="meta-card">掌握阈值：${book.threshold}</div>
       <div class="meta-card">未达标优先：${book.prioritizeWeak ? "是" : "否"}</div>
+      <div class="meta-card">模板：${book.configSnapshot?.templateLabel || "自定义配置"}</div>
       <div class="meta-card">强化标记字：${focusText}</div>
       <div class="meta-card">来源：${book.sourceBookId ? `由 ${book.sourceBookId} 循环生成` : "首次生成"}</div>
     </div>
@@ -870,6 +1010,32 @@ function renderWorkbookPreview(book) {
 function refreshWorkbookHistoryState() {
   loadWorkbookHistory();
   renderScanBookOptions();
+}
+
+function patchActiveWorkbookConfigSnapshot() {
+  if (!state.activeWorkbookId) {
+    return false;
+  }
+  const book = getWorkbookRecordById(state.activeWorkbookId);
+  if (!book) {
+    return false;
+  }
+  const config = getWorksheetConfig();
+  const patched = updateWorkbookRecord(book.id, {
+    configSnapshot: {
+      ...(book.configSnapshot || {}),
+      gridType: config.gridType,
+      columns: config.columns,
+      cellSize: config.cellSize,
+      repeatCount: config.repeatCount,
+      showPinyin: Boolean(config.showPinyin),
+      templateId: config.templateId || "custom",
+      templateLabel: config.templateLabel || "自定义配置",
+      writingTrack: config.writingTrack || "hanzi",
+    },
+  });
+  renderWorkbookPreview(patched || book);
+  return true;
 }
 
 function generateWorkbook(opts) {
@@ -1034,10 +1200,9 @@ function generateNextWorkbookFromSelected() {
   setScanMeta(`已生成下一册：第 ${next.cycle} 册，携带未达标字 ${weakChars.length} 个。`);
 }
 
-function tryPrintWorksheet(source) {
+function consumeWorksheetQuota(source) {
   if (!store || typeof store.consumeFeatureUsage !== "function") {
-    window.print();
-    return;
+    return true;
   }
   const result = store.consumeFeatureUsage("worksheet_print", 1, { source: source || "worksheet_print" });
   if (!result.ok) {
@@ -1049,16 +1214,95 @@ function tryPrintWorksheet(source) {
       window.location.href = "./pricing.html";
     }
     refreshBillingTip();
-    return;
+    return false;
   }
   refreshBillingTip();
+  return true;
+}
+
+function getPdfFileName() {
+  const config = getWorksheetConfig();
+  const date = new Date();
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  const h = `${date.getHours()}`.padStart(2, "0");
+  const min = `${date.getMinutes()}`.padStart(2, "0");
+  const modeLabel = isHanziMode() ? "汉字字帖" : "数学字帖";
+  const templateLabel = (config.templateLabel || "自定义").replace(/[\\/:*?"<>|]/g, "_");
+  return `${modeLabel}_${templateLabel}_${y}${m}${d}_${h}${min}.pdf`;
+}
+
+async function exportWorksheetPdf() {
+  const pages = [...refs.worksheetPages.querySelectorAll(".worksheet-page")];
+  if (!pages.length) {
+    setStrokeMeta("当前没有可导出的字帖内容，请先生成字帖。");
+    return;
+  }
+  if (!window.html2canvas || !window.jspdf?.jsPDF) {
+    window.alert("当前环境缺少 PDF 导出依赖，请检查网络后重试。");
+    return;
+  }
+  if (!consumeWorksheetQuota("worksheet_export_pdf")) {
+    return;
+  }
+  if (refs.exportPdfBtn) {
+    refs.exportPdfBtn.disabled = true;
+    refs.exportPdfBtn.textContent = "导出中...";
+  }
+  try {
+    const PdfCtor = window.jspdf.jsPDF;
+    const pdf = new PdfCtor({ orientation: "p", unit: "mm", format: "a4" });
+    for (let index = 0; index < pages.length; index += 1) {
+      const pageNode = pages[index];
+      // 高分辨率截图后缩放到 A4，保证网格与描红线清晰。
+      // eslint-disable-next-line no-await-in-loop
+      const canvas = await window.html2canvas(pageNode, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+      const imageData = canvas.toDataURL("image/png");
+      if (index > 0) {
+        pdf.addPage("a4", "portrait");
+      }
+      pdf.addImage(imageData, "PNG", 0, 0, 210, 297, "", "FAST");
+    }
+    pdf.save(getPdfFileName());
+    if (store && typeof store.logActivity === "function") {
+      store.logActivity("worksheet_export_pdf", {
+        pages: pages.length,
+        templateId: getWorksheetConfig().templateId || "custom",
+        source: "worksheet_pdf_export",
+      });
+    }
+    setStrokeMeta(`已导出 PDF，共 ${pages.length} 页。`);
+  } catch (error) {
+    window.alert(`PDF 导出失败：${error.message || "未知错误"}`);
+  } finally {
+    if (refs.exportPdfBtn) {
+      refs.exportPdfBtn.disabled = false;
+      refs.exportPdfBtn.textContent = "导出 PDF";
+    }
+  }
+}
+
+function tryPrintWorksheet(source) {
+  if (!consumeWorksheetQuota(source || "worksheet_print")) {
+    return;
+  }
   window.print();
 }
 
 function buildCells(chars, config, opts) {
   const weakSet = opts?.weakSet instanceof Set ? opts.weakSet : new Set();
+  const hanziMode = opts?.hanziMode !== false;
   const cells = [];
   chars.forEach((char) => {
+    const pinyin = hanziMode ? getCharPinyin(char) : "";
+    const displayText =
+      hanziMode && config.writingTrack === "pinyin" ? (pinyin ? pinyin.replace(/\s+/g, "") : char) : char;
     for (let i = 0; i < config.repeatCount; i += 1) {
       let mode = "hidden";
       if (i === 0 && config.showGuide) {
@@ -1066,7 +1310,13 @@ function buildCells(chars, config, opts) {
       } else if (i > 0 && config.traceMode === "trace" && config.showGuide) {
         mode = "trace";
       }
-      cells.push({ char, mode, weak: weakSet.has(char) });
+      cells.push({
+        char,
+        displayText,
+        pinyin,
+        mode,
+        weak: weakSet.has(char),
+      });
     }
   });
   return cells;
@@ -1088,10 +1338,11 @@ function renderWorksheet(chars, options) {
   const config = options?.configOverride || getWorksheetConfig();
   const hanziMode = isHanziMode();
   const headerMainText =
-    options?.headerMainText || `${hanziMode ? "练字内容" : "练习内容"}：${summarizeChars(chars)}`;
+    options?.headerMainText ||
+    `${hanziMode ? "练字内容" : "练习内容"}：${summarizeChars(chars)} ｜ 模板：${config.templateLabel || "自定义配置"}`;
   const weakSet = options?.weakSet instanceof Set ? options.weakSet : new Set();
 
-  const cells = buildCells(chars, config, { weakSet });
+  const cells = buildCells(chars, config, { weakSet, hanziMode });
   if (cells.length === 0) {
     refs.worksheetPages.innerHTML = `<div class="hint">${
       hanziMode ? "请输入至少一个汉字以生成字帖。" : "请输入至少一个数字或数学符号以生成字帖。"
@@ -1125,12 +1376,27 @@ function renderWorksheet(chars, options) {
 
       const charNode = document.createElement("span");
       charNode.className = `cell-char ${item.mode} ${hanziMode ? "hanzi" : "math"}`;
+      if (hanziMode && config.writingTrack === "pinyin") {
+        charNode.classList.add("pinyin-track");
+      }
       if (item.weak && (item.mode === "model" || item.mode === "trace")) {
         charNode.classList.add("weak-target");
       }
-      charNode.textContent = item.char;
+      charNode.textContent = item.displayText || item.char;
 
       cell.appendChild(charNode);
+      if (hanziMode && config.showPinyin && item.mode !== "hidden" && item.pinyin) {
+        const pinyinNode = document.createElement("span");
+        pinyinNode.className = `cell-pinyin${config.writingTrack === "pinyin" ? " compact" : ""}`;
+        pinyinNode.textContent = item.pinyin;
+        cell.appendChild(pinyinNode);
+      }
+      if (hanziMode && config.writingTrack === "pinyin" && item.mode !== "hidden") {
+        const originNode = document.createElement("span");
+        originNode.className = "cell-origin-char";
+        originNode.textContent = item.char;
+        cell.appendChild(originNode);
+      }
       grid.appendChild(cell);
     });
 
@@ -1161,8 +1427,50 @@ function setStrokeMeta(text) {
   refs.strokeMeta.textContent = text;
 }
 
+function clearStrokeHighlightPlayback() {
+  if (state.strokeHighlightTimer) {
+    clearInterval(state.strokeHighlightTimer);
+    state.strokeHighlightTimer = null;
+  }
+  state.strokeHighlightIndex = -1;
+  refs.strokeOrderList?.querySelectorAll("li").forEach((node) => {
+    node.classList.remove("active");
+  });
+}
+
+function highlightStrokeItem(index) {
+  state.strokeHighlightIndex = index;
+  refs.strokeOrderList?.querySelectorAll("li").forEach((node, nodeIndex) => {
+    node.classList.toggle("active", nodeIndex === index);
+  });
+}
+
+function startStrokeHighlightPlayback(loop) {
+  const total = Array.isArray(state.strokePaths) ? state.strokePaths.length : 0;
+  clearStrokeHighlightPlayback();
+  if (!total) {
+    return;
+  }
+  let index = 0;
+  highlightStrokeItem(index);
+  state.strokeHighlightTimer = setInterval(() => {
+    index += 1;
+    if (index >= total) {
+      if (loop) {
+        index = 0;
+      } else {
+        clearStrokeHighlightPlayback();
+        return;
+      }
+    }
+    highlightStrokeItem(index);
+  }, STROKE_HIGHLIGHT_STEP_MS);
+}
+
 function clearStrokeList() {
   refs.strokeOrderList.innerHTML = "";
+  state.strokePaths = [];
+  clearStrokeHighlightPlayback();
 }
 
 function createStrokePreview(pathData) {
@@ -1185,9 +1493,11 @@ function renderStrokeOrder(strokes) {
     setStrokeMeta("暂未获取到笔画顺序数据。");
     return;
   }
+  state.strokePaths = [...strokes];
 
   strokes.forEach((strokePath, index) => {
     const li = document.createElement("li");
+    li.dataset.strokeIndex = String(index);
     const preview = document.createElement("span");
     preview.className = "stroke-preview";
     preview.appendChild(createStrokePreview(strokePath));
@@ -1206,6 +1516,7 @@ function createWriter(char) {
     setStrokeMeta("笔顺库未加载，请检查网络后刷新。");
     return;
   }
+  clearStrokeHighlightPlayback();
 
   const side = Math.min(refs.writerTarget.clientWidth || 240, 240);
   refs.writerTarget.innerHTML = "";
@@ -1260,6 +1571,9 @@ async function loadStrokeData(char) {
 
   setStrokeMeta(`共 ${data.strokes.length} 笔，按 1 → ${data.strokes.length} 顺序书写。`);
   renderStrokeOrder(data.strokes);
+  if (state.loopMode) {
+    startStrokeHighlightPlayback(true);
+  }
 }
 
 function updatePickerActive(char) {
@@ -1273,6 +1587,7 @@ function selectChar(char) {
     return;
   }
   stopFollowReading();
+  clearStrokeHighlightPlayback();
   state.selectedChar = char;
   state.loopMode = false;
   refs.loopBtn.textContent = "循环演示：关";
@@ -1334,12 +1649,14 @@ function toggleLoopMode() {
   }
 
   if (state.loopMode) {
+    startStrokeHighlightPlayback(true);
     if (typeof state.writer.loopCharacterAnimation === "function") {
       state.writer.loopCharacterAnimation();
     } else if (typeof state.writer.animateCharacter === "function") {
       state.writer.animateCharacter();
     }
   } else {
+    clearStrokeHighlightPlayback();
     createWriter(state.selectedChar);
   }
 }
@@ -1351,8 +1668,27 @@ function bindEvents() {
     regenerate();
   });
 
+  refs.gradeTemplateSelect?.addEventListener("change", () => {
+    applyGradeTemplatePreset(refs.gradeTemplateSelect.value || "custom");
+    if (!patchActiveWorkbookConfigSnapshot()) {
+      regenerate({ preserveWorkbook: Boolean(state.activeWorkbookId) });
+    }
+  });
+
+  refs.showPinyin?.addEventListener("change", () => {
+    switchTemplateToCustomOnManualEdit();
+    if (!patchActiveWorkbookConfigSnapshot()) {
+      regenerate({ preserveWorkbook: Boolean(state.activeWorkbookId) });
+    }
+  });
+
   refs.generateBtn.addEventListener("click", regenerate);
   refs.printBtn.addEventListener("click", () => tryPrintWorksheet("worksheet_print_custom"));
+  refs.exportPdfBtn?.addEventListener("click", () => {
+    exportWorksheetPdf().catch((error) => {
+      window.alert(`PDF 导出失败：${error.message || "未知错误"}`);
+    });
+  });
   refs.clearBtn.addEventListener("click", () => {
     refs.textInput.value = "";
     regenerate();
@@ -1364,6 +1700,7 @@ function bindEvents() {
     }
     state.loopMode = false;
     refs.loopBtn.textContent = "循环演示：关";
+    startStrokeHighlightPlayback(false);
     if (typeof state.writer.animateCharacter === "function") {
       state.writer.animateCharacter();
     }
@@ -1532,21 +1869,10 @@ function bindEvents() {
     refs.showGuide,
   ].forEach((node) => {
     node.addEventListener("change", () => {
+      switchTemplateToCustomOnManualEdit();
       if (state.chars.length) {
-        if (state.activeWorkbookId) {
-          const book = getWorkbookRecordById(state.activeWorkbookId);
-          if (book) {
-            const patched = updateWorkbookRecord(book.id, {
-              configSnapshot: {
-                ...(book.configSnapshot || {}),
-                gridType: refs.gridType.value,
-                columns: clampNumber(refs.columns.value, 4, 20, 10),
-                cellSize: clampNumber(refs.cellSize.value, 40, 90, 60),
-              },
-            });
-            renderWorkbookPreview(patched || book);
-            return;
-          }
+        if (patchActiveWorkbookConfigSnapshot()) {
+          return;
         }
         renderWorksheet(state.chars);
       }
@@ -1570,8 +1896,14 @@ function bootstrap() {
   setScanMeta("扫描后会自动标记未达标字，并可一键生成下一册强化字帖本。");
   const params = new URLSearchParams(window.location.search);
   state.practiceMode = params.get("mode") === "math" ? "math" : "hanzi";
+  const templateFromQuery = params.get("template");
+  const initialTemplate = GRADE_TEMPLATE_PRESETS[templateFromQuery] ? templateFromQuery : "custom";
   if (refs.practiceModeSelect) {
     refs.practiceModeSelect.value = state.practiceMode;
+  }
+  applyGradeTemplatePreset(initialTemplate);
+  if (refs.showPinyin && params.get("pinyin") === "1") {
+    refs.showPinyin.checked = true;
   }
   refreshPracticeModeUI();
   const presetSource =

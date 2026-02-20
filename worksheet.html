@@ -57,11 +57,19 @@
         <section>
           <h2>2) 字帖配置</h2>
           <div class="form-grid">
+            <label for="gradeTemplateSelect">年级模板</label>
+            <select id="gradeTemplateSelect">
+              <option value="custom">自定义配置</option>
+              <option value="g12_tian">1-2 年级（田字格）</option>
+              <option value="g36_fourline">3-6 年级（四线三格）</option>
+            </select>
+
             <label for="gridType">格子类型</label>
             <select id="gridType">
               <option value="tian">田字格</option>
               <option value="mi">米字格</option>
               <option value="hui">回宫格</option>
+              <option value="fourline">四线三格</option>
             </select>
 
             <label for="repeatCount">每字练习格数</label>
@@ -81,12 +89,17 @@
 
             <label for="showGuide">显示参考字</label>
             <input id="showGuide" type="checkbox" checked />
+
+            <label for="showPinyin">拼音标注</label>
+            <input id="showPinyin" type="checkbox" />
           </div>
+          <p id="templateTip" class="hint">模板可一键切换为小学年级常用练习版式，并用于 PDF 导出。</p>
         </section>
 
         <section class="actions">
           <button id="generateBtn" type="button">生成字帖</button>
           <button id="printBtn" type="button">打印字帖</button>
+          <button id="exportPdfBtn" type="button" class="ghost">导出 PDF</button>
           <button id="clearBtn" type="button" class="ghost">清空</button>
         </section>
         <p id="billingTip" class="hint">
@@ -196,6 +209,8 @@
     <script src="./learning-store.js"></script>
     <script src="./hanzi-data.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@latest/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@latest/dist/jspdf.umd.min.js"></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

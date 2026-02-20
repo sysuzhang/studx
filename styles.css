@@ -299,6 +299,12 @@ button.ghost {
   margin-bottom: 6px;
 }
 
+.stroke-order-list li.active {
+  border-radius: 8px;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px #bfdbfe inset;
+}
+
 .stroke-order-list .stroke-preview {
   width: 30px;
   height: 30px;
@@ -429,6 +435,29 @@ button.ghost {
   transform: scale(0.42);
 }
 
+.grid-cell.fourline {
+  background-image:
+    linear-gradient(
+      to bottom,
+      transparent 8%,
+      var(--guide-color) 8%,
+      var(--guide-color) 9%,
+      transparent 9%,
+      transparent 34%,
+      var(--guide-color) 34%,
+      var(--guide-color) 35%,
+      transparent 35%,
+      transparent 65%,
+      var(--guide-color) 65%,
+      var(--guide-color) 66%,
+      transparent 66%,
+      transparent 91%,
+      var(--guide-color) 91%,
+      var(--guide-color) 92%,
+      transparent 92%
+    );
+}
+
 .cell-char {
   position: absolute;
   inset: 0;
@@ -464,6 +493,44 @@ button.ghost {
   font-family: "Noto Sans", "Arial", sans-serif;
   font-size: calc(var(--cell-size) * 0.5);
   font-weight: 700;
+}
+
+.cell-char.pinyin-track {
+  font-family: "Noto Sans", "Arial", sans-serif;
+  font-size: calc(var(--cell-size) * 0.34);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.cell-pinyin {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(var(--cell-size) - 4px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: calc(var(--cell-size) * 0.19);
+  color: #1d4ed8;
+  font-family: "Noto Sans", "Arial", sans-serif;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
+.cell-pinyin.compact {
+  font-size: calc(var(--cell-size) * 0.16);
+  color: #475569;
+}
+
+.cell-origin-char {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  font-size: calc(var(--cell-size) * 0.2);
+  color: #64748b;
+  font-family: "KaiTi", "STKaiti", serif;
+  pointer-events: none;
 }
 
 .hidden {

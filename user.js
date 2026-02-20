@@ -439,6 +439,9 @@ function activityMessage(log) {
   if (log.type === "worksheet_clear") {
     return "清空了字帖收藏夹";
   }
+  if (log.type === "worksheet_export_pdf") {
+    return `导出了字帖 PDF（${log.payload?.pages || 0} 页，模板：${log.payload?.templateId || "custom"}）`;
+  }
   if (log.type === "follow_reading") {
     const levelMap = { ok: "匹配", warn: "接近", bad: "待改进" };
     return `完成跟读：${log.payload?.char || ""}（${levelMap[log.payload?.level] || "记录"}）`;
