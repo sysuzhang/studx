@@ -18,7 +18,7 @@
           <a href="./keyboard.html">键盘练习</a>
           <a href="./calendar.html">学习日历</a>
           <a href="./overview.html" class="active">汉字总览</a>
-          <a href="./xinhua.html">新华字典</a>
+          <a href="./overview.html?dict=1" id="openDictNavLink">新华字典</a>
           <a href="./textbook.html">小学语文</a>
           <a href="./pricing.html">订阅中心</a>
           <a href="./auth.html">登录</a>
@@ -70,7 +70,10 @@
         <article class="panel table-panel">
           <div class="section-head">
             <h2>汉字总览表</h2>
-            <p id="tableMeta" class="meta">加载中...</p>
+            <div class="section-tools">
+              <button id="openDictBtn" type="button" class="ghost-btn">字典</button>
+              <p id="tableMeta" class="meta">加载中...</p>
+            </div>
           </div>
           <div class="table-wrap">
             <table class="overview-table">
@@ -99,8 +102,25 @@
       </section>
     </main>
 
+    <div id="dictDrawerMask" class="dict-drawer-mask" aria-hidden="true">
+      <aside id="dictDrawerPanel" class="dict-drawer" role="dialog" aria-modal="true" aria-label="新华字典浮层">
+        <div class="dict-head">
+          <h2>新华字典（浮层）</h2>
+          <button id="closeDictBtn" type="button" class="ghost-btn">关闭</button>
+        </div>
+        <p class="meta">已与汉字总览合并，可在此快速查看词条详情。</p>
+        <div class="dict-search">
+          <input id="dictSearchInput" type="text" placeholder="输入汉字快速查词条，例如：学" />
+          <button id="dictSearchBtn" type="button">查字典</button>
+        </div>
+        <div id="dictSuggestList" class="dict-suggest"></div>
+        <div id="dictDetailBox" class="dict-detail"></div>
+      </aside>
+    </div>
+
     <script src="./learning-store.js"></script>
     <script src="./hanzi-data.js"></script>
+    <script src="./xinhua-data.js"></script>
     <script src="./overview.js" defer></script>
   </body>
 </html>

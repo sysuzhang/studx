@@ -4,79 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>新华字典 - 汉字学习平台</title>
-    <link rel="stylesheet" href="./xinhua.css" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: #f3f6fc;
+        color: #0f172a;
+      }
+      .box {
+        width: min(560px, 92vw);
+        border: 1px solid #d8e1ef;
+        border-radius: 14px;
+        background: #fff;
+        padding: 18px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+      p {
+        margin: 0 0 10px;
+        color: #475569;
+      }
+      a {
+        color: #1d4ed8;
+        font-weight: 700;
+      }
+    </style>
   </head>
   <body>
-    <header class="topbar">
-      <nav class="nav">
-        <a href="./index.html" class="brand">汉字学习平台</a>
-        <div class="links">
-          <a href="./index.html">首页</a>
-          <a href="./practice.html">分级练习</a>
-          <a href="./pinyin.html">拼音频道</a>
-          <a href="./typing.html">打字闯关</a>
-          <a href="./keyboard.html">键盘练习</a>
-          <a href="./calendar.html">学习日历</a>
-          <a href="./overview.html">汉字总览</a>
-          <a href="./xinhua.html" class="active">新华字典</a>
-          <a href="./textbook.html">小学语文</a>
-          <a href="./pricing.html">订阅中心</a>
-          <a href="./auth.html">登录</a>
-          <a href="./teacher.html">教师端</a>
-          <a href="./worksheet.html">字帖工坊</a>
-          <a href="./user.html">用户中心</a>
-        </div>
-      </nav>
-      <div class="hero">
-        <h1>新华字典（教学版）</h1>
-        <p>按汉字、拼音、部首、释义进行检索，结合组词、成语和例句进行系统学习。</p>
-      </div>
-    </header>
-
-    <main class="page">
-      <section class="panel">
-        <h2>字典检索</h2>
-        <div class="filter-grid">
-          <label for="searchInput">关键词</label>
-          <input id="searchInput" type="text" placeholder="输入汉字 / 拼音 / 释义 / 组词 / 成语" />
-
-          <label for="radicalFilter">部首</label>
-          <select id="radicalFilter"></select>
-
-          <label for="levelFilter">级别</label>
-          <select id="levelFilter"></select>
-        </div>
-        <div class="toggle-row">
-          <label><input id="withIdiomOnly" type="checkbox" /> 仅看含成语词条</label>
-          <label><input id="withPictographOnly" type="checkbox" /> 仅看含象形图词条</label>
-        </div>
-        <div class="alpha-row">
-          <span class="meta">拼音首字母：</span>
-          <div id="initialIndex" class="initial-index"></div>
-        </div>
-        <div class="actions">
-          <button id="clearBtn" type="button" class="ghost">清空筛选</button>
-          <p id="resultMeta" class="meta">加载中...</p>
-          <p id="membershipMeta" class="meta"></p>
-        </div>
-      </section>
-
-      <section class="layout">
-        <article class="panel list-panel">
-          <h2>词条列表</h2>
-          <div id="entryList" class="entry-list"></div>
-        </article>
-
-        <article class="panel detail-panel">
-          <h2>词条详情</h2>
-          <div id="detailBox" class="detail-box"></div>
-        </article>
-      </section>
-    </main>
-
-    <script src="./learning-store.js"></script>
-    <script src="./hanzi-data.js"></script>
-    <script src="./xinhua-data.js"></script>
-    <script src="./xinhua.js" defer></script>
+    <div class="box">
+      <h1>新华字典已合并至汉字总览</h1>
+      <p>正在为你跳转到“汉字总览 + 右侧字典浮框”模式。</p>
+      <p>若未自动跳转，请点击：<a id="fallbackLink" href="./overview.html?dict=1">打开合并版字典</a></p>
+    </div>
+    <script src="./xinhua-redirect.js"></script>
   </body>
 </html>
