@@ -5,6 +5,17 @@ const refs = {
   generateBtn: document.getElementById("generateBtn"),
   calendarLink: document.getElementById("calendarLink"),
   worksheetLink: document.getElementById("worksheetLink"),
+  progressMeta: document.getElementById("progressMeta"),
+  learnedCount: document.getElementById("learnedCount"),
+  reviewCount: document.getElementById("reviewCount"),
+  wrongCount: document.getElementById("wrongCount"),
+  learnedPreview: document.getElementById("learnedPreview"),
+  reviewPreview: document.getElementById("reviewPreview"),
+  wrongPreview: document.getElementById("wrongPreview"),
+  markLearnedBtn: document.getElementById("markLearnedBtn"),
+  markReviewBtn: document.getElementById("markReviewBtn"),
+  markWrongBtn: document.getElementById("markWrongBtn"),
+  clearProgressBtn: document.getElementById("clearProgressBtn"),
   resultMeta: document.getElementById("resultMeta"),
   charList: document.getElementById("charList"),
   detailChar: document.getElementById("detailChar"),
@@ -30,6 +41,15 @@ const refs = {
   loopBtn: document.getElementById("loopBtn"),
   strokeMeta: document.getElementById("strokeMeta"),
   strokeOrderList: document.getElementById("strokeOrderList"),
+  idiomStoryModal: document.getElementById("idiomStoryModal"),
+  idiomStoryCloseBtn: document.getElementById("idiomStoryCloseBtn"),
+  idiomStoryTitle: document.getElementById("idiomStoryTitle"),
+  idiomStoryMeaning: document.getElementById("idiomStoryMeaning"),
+  idiomStoryImage: document.getElementById("idiomStoryImage"),
+  idiomStoryCaption: document.getElementById("idiomStoryCaption"),
+  idiomStoryText: document.getElementById("idiomStoryText"),
+  idiomSpeakNameBtn: document.getElementById("idiomSpeakNameBtn"),
+  idiomSpeakStoryBtn: document.getElementById("idiomSpeakStoryBtn"),
 };
 
 const state = {
@@ -40,10 +60,34 @@ const state = {
   loopMode: false,
   strokeReqId: 0,
   showPinyin: true,
+  library: [],
+  dimensions: {
+    ageGroups: [],
+    chineseLevels: [],
+  },
+  bankSourceLabel: "本地题库",
+  progressSummary: {
+    learnedCount: 0,
+    reviewCount: 0,
+    wrongCount: 0,
+    learnedChars: [],
+    reviewChars: [],
+    wrongChars: [],
+    updatedAt: 0,
+  },
+  idiomModal: {
+    item: null,
+    targetChar: "",
+  },
 };
 
-const library = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
-const dimensions = window.LEARNING_DIMENSIONS || { ageGroups: [], chineseLevels: [] };
+const FALLBACK_LIBRARY = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
+const FALLBACK_DIMENSIONS = window.LEARNING_DIMENSIONS || { ageGroups: [], chineseLevels: [] };
+const QUESTION_BANK_API_URLS = [
+  "/api/question-bank",
+  "/api/question-bank.json",
+  "./api/question-bank",
+];
 const speechState = { voice: null };
 const store = window.LearningStore;
 const followState = {
@@ -57,7 +101,7 @@ const HANZI_WRITER_CDN_URLS = [
 ];
 
 let writerLoadPromise = null;
-const charPinyinMap = new Map(library.map((item) => [item.char, item.pinyin]));
+const charPinyinMap = new Map();
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let hanRegex;
@@ -68,6 +112,9 @@ try {
 }
 
 function fillSelect(selectNode, options) {
+  if (!selectNode) {
+    return;
+  }
   selectNode.innerHTML = "";
   options.forEach((item) => {
     const option = document.createElement("option");
@@ -75,6 +122,161 @@ function fillSelect(selectNode, options) {
     option.textContent = item.label;
     selectNode.appendChild(option);
   });
+}
+
+function normalizeDimensionOptions(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  return input
+    .map((item) => ({
+      value: String(item?.value || "").trim(),
+      label: String(item?.label || item?.value || "").trim(),
+    }))
+    .filter((item) => item.value);
+}
+
+function normalizeDimensionsPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    ageGroups: normalizeDimensionOptions(source.ageGroups),
+    chineseLevels: normalizeDimensionOptions(source.chineseLevels),
+  };
+}
+
+function normalizeWordRows(rows) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+  return rows
+    .map((item) => ({
+      word: String(item?.word || "").trim(),
+      meaning: String(item?.meaning || "").trim(),
+    }))
+    .filter((item) => item.word);
+}
+
+function normalizeIdiomRows(rows) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+  return rows
+    .map((item) => ({
+      name: String(item?.name || "").trim(),
+      meaning: String(item?.meaning || "").trim(),
+      story: String(item?.story || "").trim(),
+      image: String(item?.image || "").trim(),
+      imageCaption: String(item?.imageCaption || "").trim(),
+    }))
+    .filter((item) => item.name);
+}
+
+function normalizeLibraryRows(rows) {
+  const pictographMap = window.HANZI_PICTOGRAPH_MAP || {};
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+  return rows
+    .map((item) => {
+      const char = String(item?.char || "").trim();
+      if (!char) {
+        return null;
+      }
+      const ages = Array.isArray(item?.ages)
+        ? item.ages.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      const levels = Array.isArray(item?.levels)
+        ? item.levels.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      const pictograph =
+        item?.pictograph && typeof item.pictograph === "object"
+          ? item.pictograph
+          : pictographMap[char] || null;
+      return {
+        char,
+        pinyin: String(item?.pinyin || "").trim(),
+        meaning: String(item?.meaning || "").trim(),
+        ages,
+        levels,
+        words: normalizeWordRows(item?.words),
+        idioms: normalizeIdiomRows(item?.idioms),
+        pictograph,
+      };
+    })
+    .filter(Boolean);
+}
+
+function rebuildCharPinyinMap(rows) {
+  charPinyinMap.clear();
+  rows.forEach((item) => {
+    if (!item?.char) {
+      return;
+    }
+    charPinyinMap.set(item.char, item.pinyin || "");
+  });
+}
+
+function applyQuestionBank(rows, dimensions, sourceLabel) {
+  const normalizedRows = normalizeLibraryRows(rows);
+  const normalizedDimensions = normalizeDimensionsPayload(dimensions);
+  const safeDimensions = {
+    ageGroups: normalizedDimensions.ageGroups.length
+      ? normalizedDimensions.ageGroups
+      : normalizeDimensionOptions(FALLBACK_DIMENSIONS.ageGroups),
+    chineseLevels: normalizedDimensions.chineseLevels.length
+      ? normalizedDimensions.chineseLevels
+      : normalizeDimensionOptions(FALLBACK_DIMENSIONS.chineseLevels),
+  };
+  state.library = normalizedRows.length ? normalizedRows : normalizeLibraryRows(FALLBACK_LIBRARY);
+  state.dimensions = safeDimensions;
+  state.bankSourceLabel = sourceLabel || "本地题库";
+  rebuildCharPinyinMap(state.library);
+}
+
+function normalizeQuestionBankPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const rows = Array.isArray(payload.rows)
+    ? payload.rows
+    : Array.isArray(payload.library)
+    ? payload.library
+    : Array.isArray(payload.items)
+    ? payload.items
+    : null;
+  const dimensions = payload.dimensions || payload.meta?.dimensions || null;
+  if (!rows || !rows.length) {
+    return null;
+  }
+  return { rows, dimensions };
+}
+
+async function loadQuestionBankFromApi() {
+  for (const url of QUESTION_BANK_API_URLS) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        continue;
+      }
+      const payload = await response.json();
+      const normalized = normalizeQuestionBankPayload(payload);
+      if (!normalized) {
+        continue;
+      }
+      applyQuestionBank(normalized.rows, normalized.dimensions, "云端题库 API");
+      return true;
+    } catch (error) {
+      // Try next fallback endpoint.
+    }
+  }
+  return false;
+}
+
+async function initQuestionBank() {
+  const loaded = await loadQuestionBankFromApi();
+  if (!loaded) {
+    applyQuestionBank(FALLBACK_LIBRARY, FALLBACK_DIMENSIONS, "内置题库");
+  }
 }
 
 function loadExternalScript(src) {
@@ -159,6 +361,124 @@ function speakText(text) {
   }
   window.speechSynthesis.speak(utterance);
   return true;
+}
+
+function previewChars(chars) {
+  if (!Array.isArray(chars) || !chars.length) {
+    return "暂无";
+  }
+  return chars.slice(0, 10).join(" ") + (chars.length > 10 ? " ..." : "");
+}
+
+function refreshProgressPanel() {
+  const summary =
+    store && typeof store.getPracticeProgressSummary === "function"
+      ? store.getPracticeProgressSummary(20)
+      : {
+          learnedCount: 0,
+          reviewCount: 0,
+          wrongCount: 0,
+          learnedChars: [],
+          reviewChars: [],
+          wrongChars: [],
+          updatedAt: 0,
+        };
+  state.progressSummary = summary;
+  if (refs.learnedCount) {
+    refs.learnedCount.textContent = String(summary.learnedCount || 0);
+  }
+  if (refs.reviewCount) {
+    refs.reviewCount.textContent = String(summary.reviewCount || 0);
+  }
+  if (refs.wrongCount) {
+    refs.wrongCount.textContent = String(summary.wrongCount || 0);
+  }
+  if (refs.learnedPreview) {
+    refs.learnedPreview.textContent = previewChars(summary.learnedChars);
+  }
+  if (refs.reviewPreview) {
+    refs.reviewPreview.textContent = previewChars(summary.reviewChars);
+  }
+  if (refs.wrongPreview) {
+    refs.wrongPreview.textContent = previewChars(summary.wrongChars);
+  }
+  if (refs.progressMeta) {
+    refs.progressMeta.textContent = `已学 ${summary.learnedCount || 0} / 复习 ${
+      summary.reviewCount || 0
+    } / 错题 ${summary.wrongCount || 0}（本地存储）`;
+  }
+}
+
+function markSelectedCharProgress(bucket, payload) {
+  if (!state.selectedChar || !store) {
+    return false;
+  }
+  if (bucket === "learned" && typeof store.markPracticeCharLearned === "function") {
+    store.markPracticeCharLearned(state.selectedChar, payload || {});
+  } else if (bucket === "review" && typeof store.markPracticeCharForReview === "function") {
+    store.markPracticeCharForReview(state.selectedChar, payload || {});
+  } else if (bucket === "wrong" && typeof store.markPracticeWrongChar === "function") {
+    store.markPracticeWrongChar(state.selectedChar, payload || {});
+  } else {
+    return false;
+  }
+  refreshProgressPanel();
+  renderCharList(state.filtered);
+  updateActiveCard();
+  return true;
+}
+
+function applyFollowProgress(char, level, transcript) {
+  if (!char || !store) {
+    return;
+  }
+  if (level === "ok" && typeof store.markPracticeCharLearned === "function") {
+    store.markPracticeCharLearned(char, {
+      source: "practice_follow",
+      reason: "follow_ok",
+      clearReview: true,
+    });
+  } else if (level === "warn" && typeof store.markPracticeCharForReview === "function") {
+    store.markPracticeCharForReview(char, {
+      source: "practice_follow",
+      reason: "follow_warn",
+    });
+  } else if (level === "bad") {
+    if (typeof store.markPracticeWrongChar === "function") {
+      store.markPracticeWrongChar(char, {
+        source: "practice_follow",
+        reason: "follow_bad",
+        transcript: String(transcript || ""),
+      });
+    }
+    if (typeof store.markPracticeCharForReview === "function") {
+      store.markPracticeCharForReview(char, {
+        source: "practice_follow",
+        reason: "follow_bad",
+      });
+    }
+  }
+  refreshProgressPanel();
+  renderCharList(state.filtered);
+  updateActiveCard();
+}
+
+function getCharProgressBadges(char) {
+  const status =
+    store && typeof store.getPracticeCharProgress === "function"
+      ? store.getPracticeCharProgress(char)
+      : { learned: false, inReview: false, wrongCount: 0 };
+  const badges = [];
+  if (status.learned) {
+    badges.push({ type: "learned", text: "已学" });
+  }
+  if (status.inReview) {
+    badges.push({ type: "review", text: "复习" });
+  }
+  if (status.wrongCount > 0) {
+    badges.push({ type: "wrong", text: `错题 ${status.wrongCount}` });
+  }
+  return badges;
 }
 
 function getCartChars() {
@@ -320,6 +640,7 @@ function setupFollowReading() {
         source: "practice",
       });
     }
+    applyFollowProgress(item.char, compare.level, transcript);
   };
 
   recognition.onerror = (event) => {
@@ -374,6 +695,77 @@ function setImageWithFallback(imgNode, src, char) {
     }
   };
   imgNode.src = src || fallback;
+}
+
+function hashString(text) {
+  let hash = 0;
+  const source = String(text || "");
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash * 31 + source.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function buildIdiomStoryImage(item, targetChar) {
+  const themes = [
+    { from: "#e0f2fe", to: "#bfdbfe", hill: "#60a5fa", sun: "#facc15" },
+    { from: "#dcfce7", to: "#bbf7d0", hill: "#34d399", sun: "#fb923c" },
+    { from: "#fef3c7", to: "#fde68a", hill: "#f59e0b", sun: "#f97316" },
+    { from: "#ede9fe", to: "#ddd6fe", hill: "#8b5cf6", sun: "#f43f5e" },
+  ];
+  const theme = themes[hashString(item?.name || targetChar) % themes.length];
+  const title = escapeHtml(String(item?.name || "成语故事").slice(0, 10));
+  const subtitle = escapeHtml(`${targetChar || "汉字"} · 成语场景`);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${theme.from}" />
+          <stop offset="100%" stop-color="${theme.to}" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="960" height="420" fill="url(#bg)" />
+      <circle cx="820" cy="90" r="44" fill="${theme.sun}" opacity="0.9" />
+      <path d="M0 320 Q160 250 320 300 T640 292 T960 330 V420 H0 Z" fill="${theme.hill}" opacity="0.62" />
+      <path d="M0 350 Q210 286 420 334 T960 348 V420 H0 Z" fill="#ffffff" opacity="0.48" />
+      <rect x="44" y="48" width="440" height="94" rx="16" fill="#ffffff" opacity="0.76" />
+      <text x="72" y="108" fill="#1e293b" font-size="48" font-family="KaiTi, STKaiti, serif">${title}</text>
+      <text x="72" y="152" fill="#334155" font-size="24" font-family="Noto Sans SC, sans-serif">${subtitle}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function closeIdiomStoryModal() {
+  if (!refs.idiomStoryModal) {
+    return;
+  }
+  refs.idiomStoryModal.classList.add("hidden");
+  refs.idiomStoryModal.setAttribute("aria-hidden", "true");
+  state.idiomModal = { item: null, targetChar: "" };
+  document.body.style.overflow = "";
+}
+
+function openIdiomStoryModal(item, targetChar) {
+  if (!refs.idiomStoryModal || !item) {
+    return;
+  }
+  state.idiomModal = { item, targetChar };
+  refs.idiomStoryTitle.textContent = item.name || "成语故事详情";
+  refs.idiomStoryMeaning.textContent = `释义：${item.meaning || "暂无释义"}`;
+  refs.idiomStoryText.textContent = item.story || "暂无故事内容";
+  const imageSrc = item.image || buildIdiomStoryImage(item, targetChar);
+  refs.idiomStoryImage.src = imageSrc;
+  refs.idiomStoryImage.alt = `${item.name || "成语"} 配图`;
+  refs.idiomStoryCaption.textContent = item.imageCaption || "配图：教学场景插图（支持后续替换真实素材）";
+
+  refs.idiomSpeakNameBtn.onclick = () => speakText(item.name || "");
+  refs.idiomSpeakStoryBtn.onclick = () =>
+    speakText(`${item.name || "成语故事"}。${item.meaning || ""}。${item.story || ""}`);
+
+  refs.idiomStoryModal.classList.remove("hidden");
+  refs.idiomStoryModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
 }
 
 function updateWorksheetLink(chars) {
@@ -447,9 +839,25 @@ function renderCharList(list) {
     miniRow.appendChild(speakBtn);
     miniRow.appendChild(addBtn);
 
+    const badges = getCharProgressBadges(item.char);
+    let badgeRow = null;
+    if (badges.length) {
+      badgeRow = document.createElement("div");
+      badgeRow.className = "progress-badges";
+      badges.forEach((badge) => {
+        const node = document.createElement("span");
+        node.className = `progress-badge ${badge.type}`;
+        node.textContent = badge.text;
+        badgeRow.appendChild(node);
+      });
+    }
+
     card.appendChild(thumb);
     card.appendChild(charNode);
     card.appendChild(miniRow);
+    if (badgeRow) {
+      card.appendChild(badgeRow);
+    }
     card.addEventListener("click", () => selectChar(item.char));
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -537,21 +945,34 @@ function renderIdioms(idioms, targetChar, targetPinyin) {
     title.className = "annotated-text";
     title.innerHTML = annotateByTarget(item.name, targetChar, targetPinyin);
 
+    const actions = document.createElement("div");
+    actions.className = "idiom-actions";
+
     const speakBtn = document.createElement("button");
     speakBtn.type = "button";
     speakBtn.className = "inline-audio-btn";
     speakBtn.textContent = "朗读";
     speakBtn.addEventListener("click", () => speakText(item.name));
 
+    const detailBtn = document.createElement("button");
+    detailBtn.type = "button";
+    detailBtn.className = "inline-audio-btn";
+    detailBtn.textContent = "详情";
+    detailBtn.addEventListener("click", () => openIdiomStoryModal(item, targetChar));
+
     const meaning = document.createElement("p");
     meaning.textContent = `释义：${item.meaning}`;
 
     const story = document.createElement("p");
     story.className = "story";
-    story.textContent = `故事：${item.story}`;
+    const preview = String(item.story || "").slice(0, 58);
+    story.textContent = `故事：${preview}${String(item.story || "").length > 58 ? "..." : ""}`;
+
+    actions.appendChild(speakBtn);
+    actions.appendChild(detailBtn);
 
     head.appendChild(title);
-    head.appendChild(speakBtn);
+    head.appendChild(actions);
     article.appendChild(head);
     article.appendChild(meaning);
     article.appendChild(story);
@@ -663,6 +1084,7 @@ function renderCharDetail(item) {
 
 function selectChar(char) {
   stopFollowReading();
+  closeIdiomStoryModal();
   state.selectedChar = char;
   state.loopMode = false;
   refs.loopBtn.textContent = "循环：关";
@@ -677,18 +1099,18 @@ function selectChar(char) {
 function filterLibrary() {
   const age = refs.ageSelect.value;
   const level = refs.levelSelect.value;
-  const exact = library.filter(
+  const exact = state.library.filter(
     (item) => item.ages.includes(age) && item.levels.includes(level)
   );
 
   let result = exact;
   if (!result.length) {
-    result = library.filter(
+    result = state.library.filter(
       (item) => item.ages.includes(age) || item.levels.includes(level)
     );
-    refs.resultMeta.textContent = `未找到完全匹配项，已为你推荐 ${result.length} 个相近难度汉字。`;
+    refs.resultMeta.textContent = `未找到完全匹配项，已为你推荐 ${result.length} 个相近难度汉字（${state.bankSourceLabel}）。`;
   } else {
-    refs.resultMeta.textContent = `共匹配到 ${result.length} 个汉字，点击卡片开始学习。`;
+    refs.resultMeta.textContent = `共匹配到 ${result.length} 个汉字，点击卡片开始学习（${state.bankSourceLabel}）。`;
   }
 
   state.filtered = result;
@@ -744,6 +1166,51 @@ function bindEvents() {
     }
     addCharsToWorksheet(state.selectedChar, "practice_current_char");
   });
+  refs.markLearnedBtn?.addEventListener("click", () => {
+    if (!state.selectedChar) {
+      return;
+    }
+    markSelectedCharProgress("learned", {
+      source: "practice_manual",
+      reason: "manual_mark_learned",
+      clearReview: true,
+    });
+  });
+  refs.markReviewBtn?.addEventListener("click", () => {
+    if (!state.selectedChar) {
+      return;
+    }
+    markSelectedCharProgress("review", {
+      source: "practice_manual",
+      reason: "manual_mark_review",
+    });
+  });
+  refs.markWrongBtn?.addEventListener("click", () => {
+    if (!state.selectedChar) {
+      return;
+    }
+    markSelectedCharProgress("wrong", {
+      source: "practice_manual",
+      reason: "manual_mark_wrong",
+    });
+    markSelectedCharProgress("review", {
+      source: "practice_manual",
+      reason: "manual_mark_wrong",
+    });
+  });
+  refs.clearProgressBtn?.addEventListener("click", () => {
+    if (!store || typeof store.clearPracticeProgress !== "function") {
+      return;
+    }
+    const ok = window.confirm("确认清空本地学习进度（已学/复习/错题字）吗？");
+    if (!ok) {
+      return;
+    }
+    store.clearPracticeProgress();
+    refreshProgressPanel();
+    renderCharList(state.filtered);
+    updateActiveCard();
+  });
   refs.followStartBtn?.addEventListener("click", startFollowReading);
   refs.followStopBtn?.addEventListener("click", stopFollowReading);
   refs.pinyinToggle?.addEventListener("change", () => {
@@ -777,6 +1244,21 @@ function bindEvents() {
     }
     createWriter(state.selectedChar);
   });
+  refs.idiomStoryCloseBtn?.addEventListener("click", closeIdiomStoryModal);
+  refs.idiomStoryModal?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    if (target.dataset.closeIdiomModal !== undefined) {
+      closeIdiomStoryModal();
+    }
+  });
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && refs.idiomStoryModal && !refs.idiomStoryModal.classList.contains("hidden")) {
+      closeIdiomStoryModal();
+    }
+  });
 }
 
 function initSelectByQuery() {
@@ -784,26 +1266,28 @@ function initSelectByQuery() {
   const age = params.get("age");
   const level = params.get("level");
   const char = params.get("char");
-  if (age && dimensions.ageGroups.some((item) => item.value === age)) {
+  if (age && state.dimensions.ageGroups.some((item) => item.value === age)) {
     refs.ageSelect.value = age;
   }
-  if (level && dimensions.chineseLevels.some((item) => item.value === level)) {
+  if (level && state.dimensions.chineseLevels.some((item) => item.value === level)) {
     refs.levelSelect.value = level;
   }
-  if (char && library.some((item) => item.char === char)) {
+  if (char && state.library.some((item) => item.char === char)) {
     state.queryChar = char;
   }
 }
 
-function bootstrap() {
+async function bootstrap() {
   refreshSpeechVoice();
   if ("speechSynthesis" in window && typeof window.speechSynthesis.addEventListener === "function") {
     window.speechSynthesis.addEventListener("voiceschanged", refreshSpeechVoice);
   }
   setupFollowReading();
-  fillSelect(refs.ageSelect, dimensions.ageGroups);
-  fillSelect(refs.levelSelect, dimensions.chineseLevels);
-  if (!dimensions.ageGroups.length || !dimensions.chineseLevels.length) {
+  refs.resultMeta.textContent = "正在加载分级题库...";
+  await initQuestionBank();
+  fillSelect(refs.ageSelect, state.dimensions.ageGroups);
+  fillSelect(refs.levelSelect, state.dimensions.chineseLevels);
+  if (!state.dimensions.ageGroups.length || !state.dimensions.chineseLevels.length) {
     refs.resultMeta.textContent = "字库维度配置异常，请检查数据文件。";
     return;
   }
@@ -812,8 +1296,11 @@ function bootstrap() {
   state.showPinyin = refs.pinyinToggle ? refs.pinyinToggle.checked : true;
   initSelectByQuery();
   refreshWorksheetCartTip();
+  refreshProgressPanel();
   bindEvents();
   filterLibrary();
 }
 
-bootstrap();
+bootstrap().catch(() => {
+  refs.resultMeta.textContent = "题库加载失败，请稍后刷新重试。";
+});

@@ -450,6 +450,15 @@ function activityMessage(log) {
     const levelMap = { ok: "匹配", warn: "接近", bad: "待改进" };
     return `完成跟读：${log.payload?.char || ""}（${levelMap[log.payload?.level] || "记录"}）`;
   }
+  if (log.type === "practice_progress_mark") {
+    const bucketMap = { learned: "已学", review: "复习", wrong: "错题字" };
+    return `分级练习进度更新：${log.payload?.char || ""} → ${
+      bucketMap[log.payload?.bucket] || "进度"
+    }`;
+  }
+  if (log.type === "practice_progress_clear") {
+    return "清空了分级练习本地进度（已学/复习/错题字）";
+  }
   if (log.type === "calendar_task_done") {
     return `完成学习任务：${log.payload?.char || ""}（${log.payload?.stage || ""}）`;
   }

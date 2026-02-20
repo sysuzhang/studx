@@ -9,6 +9,7 @@
   const BILLING_USAGE_KEY = "billingUsageMeterV1";
   const WORKBOOK_HISTORY_KEY = "worksheetWorkbookHistoryV1";
   const WORKBOOK_MASTERY_KEY = "worksheetWorkbookMasteryV1";
+  const PRACTICE_PROGRESS_KEY = "practiceLearningProgressV1";
   const USER_PROFILE_KEY = "userProfileV1";
   const ACTIVITY_LOG_KEY = "learningActivityLogV1";
 
@@ -332,6 +333,200 @@
       return uniqueHanChars(input.join(""));
     }
     return uniqueHanChars(String(input ?? ""));
+  }
+
+  function createPracticeProgressDefaults() {
+    return {
+      learnedChars: {},
+      reviewChars: {},
+      wrongChars: {},
+      updatedAt: 0,
+    };
+  }
+
+  function normalizePracticeTime(value, fallback) {
+    if (Number.isFinite(value) && value > 0) {
+      return value;
+    }
+    return Number.isFinite(fallback) && fallback > 0 ? fallback : Date.now();
+  }
+
+  function normalizePracticeLearnedMap(map) {
+    const source = map && typeof map === "object" ? map : {};
+    const next = {};
+    Object.keys(source).forEach((key) => {
+      const char = toHanCharArray(key)[0];
+      if (!char) {
+        return;
+      }
+      const ts = Number(source[key]);
+      if (Number.isFinite(ts) && ts > 0) {
+        next[char] = ts;
+      }
+    });
+    return next;
+  }
+
+  function normalizePracticeTrackMap(map) {
+    const source = map && typeof map === "object" ? map : {};
+    const next = {};
+    Object.keys(source).forEach((key) => {
+      const char = toHanCharArray(key)[0];
+      if (!char) {
+        return;
+      }
+      const row = source[key] && typeof source[key] === "object" ? source[key] : {};
+      const count = Number.isFinite(row.count) && row.count > 0 ? Math.floor(row.count) : 1;
+      const firstTs = normalizePracticeTime(row.firstTs, row.lastTs);
+      const lastTs = normalizePracticeTime(row.lastTs, firstTs);
+      next[char] = {
+        count,
+        firstTs,
+        lastTs,
+        source: row.source ? String(row.source) : "",
+        reason: row.reason ? String(row.reason) : "",
+      };
+    });
+    return next;
+  }
+
+  function normalizePracticeProgress(raw) {
+    const defaults = createPracticeProgressDefaults();
+    const source = raw && typeof raw === "object" ? raw : {};
+    return {
+      learnedChars: normalizePracticeLearnedMap(source.learnedChars),
+      reviewChars: normalizePracticeTrackMap(source.reviewChars),
+      wrongChars: normalizePracticeTrackMap(source.wrongChars),
+      updatedAt: Number.isFinite(source.updatedAt) ? source.updatedAt : 0,
+    };
+  }
+
+  function getPracticeProgress() {
+    const raw = safeRead(PRACTICE_PROGRESS_KEY, createPracticeProgressDefaults());
+    return normalizePracticeProgress(raw);
+  }
+
+  function savePracticeProgress(progress) {
+    const next = normalizePracticeProgress(progress);
+    next.updatedAt = Date.now();
+    safeWrite(PRACTICE_PROGRESS_KEY, next);
+    return next;
+  }
+
+  function touchPracticeTrack(map, char, payload) {
+    const now = Date.now();
+    const row = map[char] && typeof map[char] === "object" ? map[char] : null;
+    map[char] = {
+      count: (row?.count || 0) + 1,
+      firstTs: Number.isFinite(row?.firstTs) ? row.firstTs : now,
+      lastTs: now,
+      source: payload?.source ? String(payload.source) : row?.source || "",
+      reason: payload?.reason ? String(payload.reason) : row?.reason || "",
+    };
+  }
+
+  function markPracticeCharLearned(char, payload) {
+    const target = toHanCharArray(char)[0];
+    if (!target) {
+      return getPracticeProgress();
+    }
+    const progress = getPracticeProgress();
+    progress.learnedChars[target] = Date.now();
+    if (payload?.clearReview) {
+      delete progress.reviewChars[target];
+    }
+    if (payload?.clearWrong) {
+      delete progress.wrongChars[target];
+    }
+    const saved = savePracticeProgress(progress);
+    logActivity("practice_progress_mark", {
+      bucket: "learned",
+      char: target,
+      source: payload?.source || "practice",
+    });
+    return saved;
+  }
+
+  function markPracticeCharForReview(char, payload) {
+    const target = toHanCharArray(char)[0];
+    if (!target) {
+      return getPracticeProgress();
+    }
+    const progress = getPracticeProgress();
+    touchPracticeTrack(progress.reviewChars, target, payload);
+    const saved = savePracticeProgress(progress);
+    logActivity("practice_progress_mark", {
+      bucket: "review",
+      char: target,
+      source: payload?.source || "practice",
+      reason: payload?.reason || "",
+    });
+    return saved;
+  }
+
+  function markPracticeWrongChar(char, payload) {
+    const target = toHanCharArray(char)[0];
+    if (!target) {
+      return getPracticeProgress();
+    }
+    const progress = getPracticeProgress();
+    touchPracticeTrack(progress.wrongChars, target, payload);
+    const saved = savePracticeProgress(progress);
+    logActivity("practice_progress_mark", {
+      bucket: "wrong",
+      char: target,
+      source: payload?.source || "practice",
+      reason: payload?.reason || "",
+    });
+    return saved;
+  }
+
+  function clearPracticeProgress() {
+    const next = createPracticeProgressDefaults();
+    next.updatedAt = Date.now();
+    safeWrite(PRACTICE_PROGRESS_KEY, next);
+    logActivity("practice_progress_clear", {});
+    return next;
+  }
+
+  function getPracticeProgressSummary(limit) {
+    const rows = getPracticeProgress();
+    const max = Number.isFinite(limit) && limit >= 0 ? Math.floor(limit) : 12;
+
+    const learnedChars = Object.entries(rows.learnedChars || {})
+      .sort((a, b) => (b[1] || 0) - (a[1] || 0))
+      .map((entry) => entry[0]);
+
+    const reviewChars = Object.entries(rows.reviewChars || {})
+      .sort((a, b) => (b[1]?.lastTs || 0) - (a[1]?.lastTs || 0))
+      .map((entry) => entry[0]);
+
+    const wrongChars = Object.entries(rows.wrongChars || {})
+      .sort((a, b) => (b[1]?.lastTs || 0) - (a[1]?.lastTs || 0))
+      .map((entry) => entry[0]);
+
+    return {
+      learnedCount: learnedChars.length,
+      reviewCount: reviewChars.length,
+      wrongCount: wrongChars.length,
+      learnedChars: learnedChars.slice(0, max),
+      reviewChars: reviewChars.slice(0, max),
+      wrongChars: wrongChars.slice(0, max),
+      updatedAt: rows.updatedAt || 0,
+    };
+  }
+
+  function getPracticeCharProgress(char) {
+    const target = toHanCharArray(char)[0];
+    if (!target) {
+      return { learned: false, inReview: false, wrongCount: 0 };
+    }
+    const rows = getPracticeProgress();
+    return {
+      learned: Boolean(rows.learnedChars[target]),
+      inReview: Boolean(rows.reviewChars[target]),
+      wrongCount: Number.isFinite(rows.wrongChars[target]?.count) ? rows.wrongChars[target].count : 0,
+    };
   }
 
   function getWorksheetCart() {
@@ -791,6 +986,7 @@
       BILLING_USAGE_KEY,
       WORKBOOK_HISTORY_KEY,
       WORKBOOK_MASTERY_KEY,
+      PRACTICE_PROGRESS_KEY,
       USER_PROFILE_KEY,
       ACTIVITY_LOG_KEY,
     },
@@ -806,6 +1002,14 @@
     updateWorkbookRecord,
     getWorkbookMasteryMap,
     saveWorkbookMasteryMap,
+    getPracticeProgress,
+    savePracticeProgress,
+    markPracticeCharLearned,
+    markPracticeCharForReview,
+    markPracticeWrongChar,
+    clearPracticeProgress,
+    getPracticeProgressSummary,
+    getPracticeCharProgress,
     getCalendarCompletion,
     getLearnedCharsFromCalendar,
     getFollowReadingRecords,

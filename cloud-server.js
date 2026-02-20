@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 const express = require("express");
 const Stripe = require("stripe");
 
@@ -10,6 +11,7 @@ const PORT = Number.parseInt(process.env.PORT, 10) || 8787;
 const STATIC_ROOT = __dirname;
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "cloud-db.json");
+const QUESTION_BANK_SCRIPT_PATH = path.join(STATIC_ROOT, "hanzi-data.js");
 const SESSION_DAYS = 30;
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const TEACHER_INVITE_CODE = process.env.TEACHER_INVITE_CODE || "TEACHER2026";
@@ -70,6 +72,11 @@ const BILLING_EXTEND_MS = {
 };
 
 const stripeClient = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+let questionBankCache = {
+  mtimeMs: 0,
+  loadedAt: 0,
+  data: null,
+};
 
 app.use(
   express.json({
@@ -120,6 +127,143 @@ function writeDb(db) {
 
 function nowTs() {
   return Date.now();
+}
+
+function normalizeQuestionBankDimensions(dimensions) {
+  const fallback = {
+    ageGroups: [],
+    chineseLevels: [],
+  };
+  if (!dimensions || typeof dimensions !== "object") {
+    return fallback;
+  }
+  const ageGroups = Array.isArray(dimensions.ageGroups)
+    ? dimensions.ageGroups
+        .map((item) => ({
+          value: String(item?.value || "").trim(),
+          label: String(item?.label || item?.value || "").trim(),
+        }))
+        .filter((item) => item.value)
+    : [];
+  const chineseLevels = Array.isArray(dimensions.chineseLevels)
+    ? dimensions.chineseLevels
+        .map((item) => ({
+          value: String(item?.value || "").trim(),
+          label: String(item?.label || item?.value || "").trim(),
+        }))
+        .filter((item) => item.value)
+    : [];
+  return { ageGroups, chineseLevels };
+}
+
+function normalizeQuestionWords(words) {
+  if (!Array.isArray(words)) {
+    return [];
+  }
+  return words
+    .map((item) => ({
+      word: String(item?.word || "").trim(),
+      meaning: String(item?.meaning || "").trim(),
+    }))
+    .filter((item) => item.word);
+}
+
+function normalizeQuestionIdioms(idioms) {
+  if (!Array.isArray(idioms)) {
+    return [];
+  }
+  return idioms
+    .map((item) => ({
+      name: String(item?.name || "").trim(),
+      meaning: String(item?.meaning || "").trim(),
+      story: String(item?.story || "").trim(),
+      image: String(item?.image || "").trim(),
+    }))
+    .filter((item) => item.name);
+}
+
+function normalizeQuestionPictograph(pictograph) {
+  if (!pictograph || typeof pictograph !== "object") {
+    return null;
+  }
+  const image = String(pictograph.image || "").trim();
+  const source = String(pictograph.source || "").trim();
+  const script = String(pictograph.script || "").trim();
+  const note = String(pictograph.note || "").trim();
+  if (!image && !script && !note && !source) {
+    return null;
+  }
+  return { image, source, script, note };
+}
+
+function normalizeQuestionBankRows(rows) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+  return rows
+    .map((item) => {
+      const char = String(item?.char || "").trim();
+      if (!char) {
+        return null;
+      }
+      const ages = Array.isArray(item?.ages)
+        ? item.ages.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      const levels = Array.isArray(item?.levels)
+        ? item.levels.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      return {
+        char,
+        pinyin: String(item?.pinyin || "").trim(),
+        meaning: String(item?.meaning || "").trim(),
+        ages,
+        levels,
+        words: normalizeQuestionWords(item?.words),
+        idioms: normalizeQuestionIdioms(item?.idioms),
+        pictograph: normalizeQuestionPictograph(item?.pictograph),
+      };
+    })
+    .filter(Boolean);
+}
+
+function loadQuestionBankData() {
+  try {
+    const stats = fs.statSync(QUESTION_BANK_SCRIPT_PATH);
+    if (
+      questionBankCache.data &&
+      Number.isFinite(questionBankCache.mtimeMs) &&
+      questionBankCache.mtimeMs === stats.mtimeMs
+    ) {
+      return questionBankCache.data;
+    }
+    const source = fs.readFileSync(QUESTION_BANK_SCRIPT_PATH, "utf8");
+    const sandbox = { window: {} };
+    vm.createContext(sandbox);
+    vm.runInContext(source, sandbox, { timeout: 2500 });
+
+    const dimensions = normalizeQuestionBankDimensions(sandbox.window.LEARNING_DIMENSIONS);
+    const rows = normalizeQuestionBankRows(sandbox.window.HANZI_LIBRARY);
+    const payload = {
+      dimensions,
+      rows,
+      loadedAt: nowTs(),
+    };
+    questionBankCache = {
+      mtimeMs: stats.mtimeMs,
+      loadedAt: payload.loadedAt,
+      data: payload,
+    };
+    return payload;
+  } catch (error) {
+    if (questionBankCache.data) {
+      return questionBankCache.data;
+    }
+    return {
+      dimensions: { ageGroups: [], chineseLevels: [] },
+      rows: [],
+      loadedAt: nowTs(),
+    };
+  }
 }
 
 function createId(prefix) {
@@ -531,6 +675,15 @@ function computeReportFromSnapshot(snapshot) {
       .map((key) => String(key).split("|")[1])
       .filter(Boolean)
   );
+  const practiceProgress = getSnapshotObject(snapshot, "practiceLearningProgressV1", {});
+  const practiceLearnedSet = new Set(
+    Object.keys(practiceProgress?.learnedChars || {})
+      .map((char) => String(char || "").trim())
+      .filter(Boolean)
+  );
+  const mergedLearned = new Set([...learnedSet, ...practiceLearnedSet]);
+  const practiceReviewCount = Object.keys(practiceProgress?.reviewChars || {}).filter(Boolean).length;
+  const practiceWrongCount = Object.keys(practiceProgress?.wrongChars || {}).filter(Boolean).length;
 
   const typing = safeArray(getSnapshotObject(snapshot, "typingGameRecordsV1", []));
   const keyboard = safeArray(getSnapshotObject(snapshot, "keyboardPracticeRecordsV1", []));
@@ -565,7 +718,11 @@ function computeReportFromSnapshot(snapshot) {
       dailyMinutes: Number(profile.dailyMinutes) || 0,
     },
     stats: {
-      learnedChars: learnedSet.size,
+      learnedChars: mergedLearned.size,
+      learnedCharsFromCalendar: learnedSet.size,
+      learnedCharsFromPractice: practiceLearnedSet.size,
+      practiceReviewChars: practiceReviewCount,
+      practiceWrongChars: practiceWrongCount,
       completedTasks: completionKeys.length,
       typingGames: typing.length,
       typingBestScore: typingBest,
@@ -587,6 +744,69 @@ function computeReportFromSnapshot(snapshot) {
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, ts: nowTs() });
 });
+
+function handleQuestionBankRequest(req, res) {
+  const bank = loadQuestionBankData();
+  const age = String(req.query.age || "").trim();
+  const level = String(req.query.level || "").trim();
+  const keyword = String(req.query.keyword || "").trim();
+  const keywordLower = keyword.toLowerCase();
+  const rawLimit = Number.parseInt(String(req.query.limit || ""), 10);
+
+  let rows = Array.isArray(bank.rows) ? bank.rows : [];
+
+  if (age) {
+    rows = rows.filter((item) => Array.isArray(item.ages) && item.ages.includes(age));
+  }
+  if (level) {
+    rows = rows.filter((item) => Array.isArray(item.levels) && item.levels.includes(level));
+  }
+  if (keyword) {
+    rows = rows.filter((item) => {
+      const inHead =
+        item.char.includes(keyword) ||
+        String(item.pinyin || "")
+          .toLowerCase()
+          .includes(keywordLower) ||
+        String(item.meaning || "").includes(keyword);
+      if (inHead) {
+        return true;
+      }
+      const inWords = (item.words || []).some(
+        (row) => String(row.word || "").includes(keyword) || String(row.meaning || "").includes(keyword)
+      );
+      if (inWords) {
+        return true;
+      }
+      return (item.idioms || []).some(
+        (row) =>
+          String(row.name || "").includes(keyword) ||
+          String(row.meaning || "").includes(keyword) ||
+          String(row.story || "").includes(keyword)
+      );
+    });
+  }
+
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 600) : rows.length;
+  const outputRows = rows.slice(0, limit);
+  return res.json({
+    ok: true,
+    source: "question_bank_api",
+    loadedAt: bank.loadedAt || nowTs(),
+    dimensions: bank.dimensions || { ageGroups: [], chineseLevels: [] },
+    total: rows.length,
+    rows: outputRows,
+    query: {
+      age: age || "",
+      level: level || "",
+      keyword: keyword || "",
+      limit,
+    },
+  });
+}
+
+app.get("/api/question-bank", handleQuestionBankRequest);
+app.get("/api/question-bank.json", handleQuestionBankRequest);
 
 app.post("/api/auth/register", (req, res) => {
   const username = normalizeUsername(req.body?.username);

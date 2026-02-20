@@ -55,6 +55,36 @@
         </label>
       </section>
 
+      <section class="panel progress-panel">
+        <div class="section-head">
+          <h2>学习进度记录（本地）</h2>
+          <p id="progressMeta" class="meta">自动沉淀：已学 / 复习 / 错题字。</p>
+        </div>
+        <div class="progress-grid">
+          <article class="progress-card learned">
+            <p class="label">已学</p>
+            <p id="learnedCount" class="value">0</p>
+            <p id="learnedPreview" class="meta">-</p>
+          </article>
+          <article class="progress-card review">
+            <p class="label">复习</p>
+            <p id="reviewCount" class="value">0</p>
+            <p id="reviewPreview" class="meta">-</p>
+          </article>
+          <article class="progress-card wrong">
+            <p class="label">错题字</p>
+            <p id="wrongCount" class="value">0</p>
+            <p id="wrongPreview" class="meta">-</p>
+          </article>
+        </div>
+        <div class="actions compact">
+          <button id="markLearnedBtn" type="button">标记当前字为已学</button>
+          <button id="markReviewBtn" type="button">加入复习</button>
+          <button id="markWrongBtn" type="button">记为错题字</button>
+          <button id="clearProgressBtn" type="button" class="inline-audio-btn">清空本地进度</button>
+        </div>
+      </section>
+
       <section class="panel">
         <div class="section-head">
           <h2>推荐练习汉字</h2>
@@ -145,6 +175,29 @@
         </article>
       </section>
     </main>
+
+    <section id="idiomStoryModal" class="story-modal hidden" aria-hidden="true">
+      <div class="story-modal-mask" data-close-idiom-modal></div>
+      <article
+        class="story-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="idiomStoryTitle"
+      >
+        <button id="idiomStoryCloseBtn" type="button" class="story-modal-close" aria-label="关闭详情弹窗">
+          ×
+        </button>
+        <h2 id="idiomStoryTitle">成语故事详情</h2>
+        <p id="idiomStoryMeaning" class="meta">-</p>
+        <img id="idiomStoryImage" class="story-image" alt="成语故事配图" />
+        <p id="idiomStoryCaption" class="meta">-</p>
+        <p id="idiomStoryText" class="story-text">-</p>
+        <div class="actions compact">
+          <button id="idiomSpeakNameBtn" type="button">朗读成语</button>
+          <button id="idiomSpeakStoryBtn" type="button">朗读故事</button>
+        </div>
+      </article>
+    </section>
 
     <script src="./learning-store.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer/dist/hanzi-writer.min.js"></script>
