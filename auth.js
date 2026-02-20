@@ -44,13 +44,18 @@ async function doLogin() {
   if (!cloud) {
     return;
   }
+  const username = refs.loginUsername.value.trim();
+  if (!username) {
+    showTip(refs.loginTip, "请输入任意账号名后再登录。");
+    return;
+  }
   showTip(refs.loginTip, "登录中...");
   try {
     const payload = await cloud.login({
-      username: refs.loginUsername.value.trim(),
+      username,
       password: refs.loginPassword.value,
     });
-    showTip(refs.loginTip, `登录成功，欢迎 ${payload.user.username}`);
+    showTip(refs.loginTip, `登录成功（原型模式），欢迎 ${payload.user.username}`);
     refs.loginPassword.value = "";
     await refreshSession();
   } catch (error) {

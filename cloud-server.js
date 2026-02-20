@@ -15,6 +15,7 @@ const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const TEACHER_INVITE_CODE = process.env.TEACHER_INVITE_CODE || "TEACHER2026";
 const TEACHER_DEFAULT_USERNAME = process.env.TEACHER_DEFAULT_USERNAME || "teacher";
 const TEACHER_DEFAULT_PASSWORD = process.env.TEACHER_DEFAULT_PASSWORD || "teacher123";
+const AUTH_PROTOTYPE_MODE = process.env.AUTH_PROTOTYPE_MODE !== "0";
 const APP_BASE_URL = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
@@ -129,6 +130,36 @@ function normalizeUsername(value) {
   return String(value || "")
     .trim()
     .toLowerCase();
+}
+
+function inferPrototypeRole(username) {
+  const value = String(username || "");
+  if (/(teacher|admin|mentor|老师|教师|班主任)/i.test(value)) {
+    return "teacher";
+  }
+  return "student";
+}
+
+function createPrototypeUser(db, username, password) {
+  const now = nowTs();
+  const role = inferPrototypeRole(username);
+  const user = {
+    id: createId("usr"),
+    username,
+    displayName: username,
+    role,
+    password: createPasswordRecord(password || "prototype"),
+    createdAt: now,
+  };
+  ensureUserBilling(user);
+  user.billing = {
+    ...user.billing,
+    source: "prototype_login",
+    activatedAt: now,
+    updatedAt: now,
+  };
+  db.users.push(user);
+  return user;
 }
 
 function hashPassword(password, salt) {
@@ -610,17 +641,28 @@ app.post("/api/auth/register", (req, res) => {
 app.post("/api/auth/login", (req, res) => {
   const username = normalizeUsername(req.body?.username);
   const password = String(req.body?.password || "");
+  if (!username) {
+    return res.status(400).json({ message: "请输入用户名" });
+  }
   const db = readDb();
   cleanExpiredSessions(db);
-  const user = db.users.find((item) => item.username === username);
-  if (!user || !verifyPassword(password, user.password)) {
+  let user = db.users.find((item) => item.username === username);
+
+  if (AUTH_PROTOTYPE_MODE) {
+    if (!user) {
+      user = createPrototypeUser(db, username, password);
+    }
+  } else if (!user || !verifyPassword(password, user.password)) {
     return res.status(401).json({ message: "用户名或密码错误" });
   }
+
+  ensureUserBilling(user);
   const session = createSession(db, user.id);
   writeDb(db);
   return res.json({
     token: session.token,
     user: publicUser(user),
+    prototype: AUTH_PROTOTYPE_MODE,
   });
 });
 

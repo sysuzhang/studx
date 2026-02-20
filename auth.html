@@ -28,7 +28,7 @@
       </nav>
       <div class="hero">
         <h1>登录与账户</h1>
-        <p>支持多用户登录。登录后可将学习进度同步到云端，并在多设备间恢复学习记录。</p>
+        <p>原型模式已开启：可用任意账号直接登录模拟体验，登录后可同步学习进度并跨设备恢复。</p>
       </div>
     </header>
 
@@ -48,15 +48,15 @@
           <h2>登录</h2>
           <div class="form-grid">
             <label for="loginUsername">用户名</label>
-            <input id="loginUsername" type="text" placeholder="例如：anna_01" />
+            <input id="loginUsername" type="text" placeholder="任意账号名，例如：anna_01" />
             <label for="loginPassword">密码</label>
-            <input id="loginPassword" type="password" placeholder="请输入密码" />
+            <input id="loginPassword" type="password" placeholder="原型模式可留空（仅用于模拟）" />
           </div>
           <div class="actions">
             <button id="loginBtn" type="button">登录</button>
             <span id="loginTip" class="tip"></span>
           </div>
-          <p class="meta">提示：教师可使用教师账号登录后进入“教师端”。</p>
+          <p class="meta">提示：账号名包含 teacher / 老师 / 教师 时，将自动按教师角色登录。</p>
         </article>
 
         <article class="panel">
