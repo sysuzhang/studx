@@ -10,6 +10,7 @@ const refs = {
   progressBox: document.getElementById("progressBox"),
   lessonTitle: document.getElementById("lessonTitle"),
   lessonMeta: document.getElementById("lessonMeta"),
+  lessonScene: document.getElementById("lessonScene"),
   readBtn: document.getElementById("readBtn"),
   markDoneBtn: document.getElementById("markDoneBtn"),
   addCharsBtn: document.getElementById("addCharsBtn"),
@@ -106,6 +107,85 @@ const allKeywordWords = [...new Set(allLessons.flatMap((lesson) => (lesson.keywo
   Boolean
 );
 const allHanziPool = [...new Set(hanziLib.map((item) => item?.char).filter((char) => isHanChar(char)))];
+const LESSON_SCENE_THEMES = [
+  {
+    id: "campus",
+    label: "校园课堂",
+    tokens: ["校园", "教室", "老师", "值日", "同学", "书包", "课堂"],
+    skyA: "#dbeafe",
+    skyB: "#eef6ff",
+    ground: "#d1fae5",
+    accent: "#60a5fa",
+    decor: "school",
+    outfit: "#2563eb",
+  },
+  {
+    id: "park",
+    label: "公园自然",
+    tokens: ["春", "秋", "公园", "树", "花", "风筝", "种子", "叶"],
+    skyA: "#d9f99d",
+    skyB: "#e7f8cf",
+    ground: "#bbf7d0",
+    accent: "#65a30d",
+    decor: "park",
+    outfit: "#16a34a",
+  },
+  {
+    id: "home",
+    label: "家庭生活",
+    tokens: ["家", "妈妈", "爸爸", "早饭", "早晨", "家庭"],
+    skyA: "#fef3c7",
+    skyB: "#fff7df",
+    ground: "#fde68a",
+    accent: "#f59e0b",
+    decor: "home",
+    outfit: "#f97316",
+  },
+  {
+    id: "sports",
+    label: "操场活动",
+    tokens: ["操场", "跑步", "跳绳", "比赛", "运动"],
+    skyA: "#bfdbfe",
+    skyB: "#e7f1ff",
+    ground: "#bae6fd",
+    accent: "#0284c7",
+    decor: "sports",
+    outfit: "#0369a1",
+  },
+  {
+    id: "night",
+    label: "夜空想象",
+    tokens: ["月亮", "夜晚", "星", "故事"],
+    skyA: "#1e3a8a",
+    skyB: "#172554",
+    ground: "#1e293b",
+    accent: "#facc15",
+    decor: "night",
+    outfit: "#facc15",
+  },
+  {
+    id: "culture",
+    label: "文化表达",
+    tokens: ["阅读", "写作", "观点", "节日", "成长", "未来", "讨论", "倾听"],
+    skyA: "#ddd6fe",
+    skyB: "#ede9fe",
+    ground: "#e9d5ff",
+    accent: "#7c3aed",
+    decor: "culture",
+    outfit: "#7c3aed",
+  },
+  {
+    id: "science",
+    label: "科学观察",
+    tokens: ["科学", "实验", "河流", "年轮", "观察", "声音"],
+    skyA: "#cffafe",
+    skyB: "#e6fcff",
+    ground: "#bae6fd",
+    accent: "#0ea5e9",
+    decor: "science",
+    outfit: "#0284c7",
+  },
+];
 
 function isHanChar(char) {
   return /[\u3400-\u9fff\uf900-\ufaff]/.test(char);
@@ -192,6 +272,175 @@ function normalizeKeyword(text) {
   return String(text || "")
     .trim()
     .toLowerCase();
+}
+
+function escapeSvgText(text) {
+  return String(text || "").replace(/[&<>"']/g, (char) => {
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&apos;",
+    };
+    return map[char] || char;
+  });
+}
+
+function resolveLessonSceneTheme(lesson) {
+  const corpus = [
+    lesson?.title || "",
+    ...(lesson?.text || []),
+    ...(lesson?.tasks || []),
+    ...(lesson?.keywords || []).map((item) => item.word || ""),
+  ].join(" ");
+  const matched = LESSON_SCENE_THEMES.find((theme) =>
+    (theme.tokens || []).some((token) => token && corpus.includes(token))
+  );
+  return matched || LESSON_SCENE_THEMES[0];
+}
+
+function buildSceneDecor(theme) {
+  if (!theme) {
+    return "";
+  }
+  if (theme.decor === "school") {
+    return `
+      <rect x="80" y="180" width="260" height="170" rx="14" fill="#ffffff" stroke="#93c5fd" stroke-width="4"/>
+      <rect x="102" y="210" width="48" height="36" fill="#bfdbfe"/>
+      <rect x="166" y="210" width="48" height="36" fill="#bfdbfe"/>
+      <rect x="230" y="210" width="48" height="36" fill="#bfdbfe"/>
+      <rect x="158" y="268" width="96" height="82" rx="8" fill="#60a5fa"/>
+      <rect x="176" y="120" width="62" height="48" rx="8" fill="#2563eb"/>
+    `;
+  }
+  if (theme.decor === "home") {
+    return `
+      <polygon points="120,250 250,150 380,250" fill="#fb923c" />
+      <rect x="140" y="248" width="220" height="110" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="4"/>
+      <rect x="232" y="286" width="52" height="72" rx="8" fill="#f59e0b"/>
+      <rect x="168" y="272" width="44" height="34" fill="#fde68a"/>
+      <rect x="302" y="272" width="44" height="34" fill="#fde68a"/>
+    `;
+  }
+  if (theme.decor === "sports") {
+    return `
+      <rect x="78" y="286" width="350" height="70" rx="12" fill="#dcfce7" stroke="#4ade80" stroke-width="3"/>
+      <line x1="90" y1="322" x2="410" y2="322" stroke="#22c55e" stroke-width="4"/>
+      <circle cx="132" cy="252" r="20" fill="#ffffff" stroke="#38bdf8" stroke-width="4"/>
+      <circle cx="188" cy="252" r="20" fill="#ffffff" stroke="#38bdf8" stroke-width="4"/>
+      <circle cx="244" cy="252" r="20" fill="#ffffff" stroke="#38bdf8" stroke-width="4"/>
+    `;
+  }
+  if (theme.decor === "night") {
+    return `
+      <circle cx="190" cy="132" r="50" fill="#fde68a"/>
+      <circle cx="208" cy="124" r="46" fill="#1e3a8a"/>
+      <circle cx="120" cy="76" r="6" fill="#fef08a"/>
+      <circle cx="276" cy="84" r="5" fill="#fef08a"/>
+      <circle cx="334" cy="128" r="4" fill="#fef08a"/>
+      <rect x="80" y="268" width="300" height="88" rx="12" fill="#1f2937" opacity="0.8"/>
+    `;
+  }
+  if (theme.decor === "science") {
+    return `
+      <path d="M70 318 Q160 282 254 316 T430 316" fill="none" stroke="#38bdf8" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="126" cy="248" r="30" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="4"/>
+      <rect x="194" y="214" width="64" height="98" rx="14" fill="#f0f9ff" stroke="#38bdf8" stroke-width="4"/>
+      <circle cx="300" cy="248" r="22" fill="#cffafe" stroke="#06b6d4" stroke-width="4"/>
+    `;
+  }
+  if (theme.decor === "culture") {
+    return `
+      <rect x="88" y="208" width="300" height="148" rx="12" fill="#faf5ff" stroke="#a78bfa" stroke-width="4"/>
+      <rect x="108" y="230" width="120" height="110" rx="8" fill="#ffffff" stroke="#c4b5fd" stroke-width="3"/>
+      <line x1="124" y1="260" x2="208" y2="260" stroke="#c4b5fd" stroke-width="3"/>
+      <line x1="124" y1="284" x2="206" y2="284" stroke="#c4b5fd" stroke-width="3"/>
+      <rect x="252" y="232" width="118" height="50" rx="10" fill="#ddd6fe"/>
+      <rect x="252" y="292" width="118" height="48" rx="10" fill="#c4b5fd"/>
+    `;
+  }
+  return `
+    <circle cx="118" cy="168" r="42" fill="#fcd34d"/>
+    <rect x="76" y="282" width="340" height="74" rx="12" fill="#bbf7d0" stroke="#86efac" stroke-width="3"/>
+    <circle cx="180" cy="244" r="32" fill="#dcfce7" stroke="#4ade80" stroke-width="3"/>
+    <circle cx="286" cy="244" r="26" fill="#dcfce7" stroke="#4ade80" stroke-width="3"/>
+  `;
+}
+
+function buildLessonSceneAsset(lesson) {
+  if (!lesson) {
+    return null;
+  }
+  if (lesson.sceneImage) {
+    const defaultKeyword = lesson.keywords?.[0]?.word || lesson._unitTitle || "课文场景";
+    return {
+      src: String(lesson.sceneImage),
+      alt: lesson.sceneAlt || `${lesson.title} 场景图`,
+      caption: `场景关键词：${defaultKeyword}（课程定制图）`,
+    };
+  }
+  const theme = resolveLessonSceneTheme(lesson);
+  const keyword = lesson.keywords?.[0]?.word || lesson._unitTitle || "学习场景";
+  const titleText = escapeSvgText(lesson.title || "课文场景");
+  const metaText = escapeSvgText(`${theme.label} · ${keyword}`);
+  const deco = buildSceneDecor(theme);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" role="img" aria-label="${titleText}">
+      <defs>
+        <linearGradient id="sky_${theme.id}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${theme.skyA}"/>
+          <stop offset="100%" stop-color="${theme.skyB}"/>
+        </linearGradient>
+      </defs>
+      <rect width="1000" height="560" fill="url(#sky_${theme.id})"/>
+      <rect y="360" width="1000" height="200" fill="${theme.ground}" opacity="0.95"/>
+      ${deco}
+      <g transform="translate(650,205)">
+        <ellipse cx="98" cy="208" rx="88" ry="20" fill="#94a3b8" opacity="0.25"/>
+        <circle cx="98" cy="84" r="44" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
+        <circle cx="84" cy="76" r="5" fill="#0f172a"/>
+        <circle cx="112" cy="76" r="5" fill="#0f172a"/>
+        <path d="M80 98 Q98 112 116 98" fill="none" stroke="#7c2d12" stroke-width="4" stroke-linecap="round"/>
+        <rect x="52" y="128" width="92" height="108" rx="22" fill="${theme.outfit}"/>
+        <rect x="44" y="146" width="22" height="70" rx="11" fill="${theme.outfit}"/>
+        <rect x="130" y="146" width="22" height="70" rx="11" fill="${theme.outfit}"/>
+        <rect x="62" y="232" width="24" height="52" rx="10" fill="#334155"/>
+        <rect x="112" y="232" width="24" height="52" rx="10" fill="#334155"/>
+        <rect x="58" y="282" width="32" height="12" rx="6" fill="#111827"/>
+        <rect x="108" y="282" width="32" height="12" rx="6" fill="#111827"/>
+      </g>
+      <rect x="34" y="28" width="472" height="84" rx="14" fill="#ffffff" opacity="0.86"/>
+      <text x="54" y="64" font-size="32" font-family="Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">${titleText}</text>
+      <text x="54" y="94" font-size="20" font-family="Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif" fill="#334155">${metaText}</text>
+    </svg>
+  `;
+  return {
+    src: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    alt: `${lesson.title} 场景图（含卡通人物）`,
+    caption: `场景：${theme.label}｜关键词：${keyword}｜卡通人物引导阅读`,
+  };
+}
+
+function renderLessonScene(lesson) {
+  if (!refs.lessonScene) {
+    return;
+  }
+  if (!lesson) {
+    refs.lessonScene.innerHTML = `<p class="meta">请选择课文后显示配图。</p>`;
+    return;
+  }
+  const asset = buildLessonSceneAsset(lesson);
+  if (!asset?.src) {
+    refs.lessonScene.innerHTML = `<p class="meta">当前课文暂无场景图。</p>`;
+    return;
+  }
+  refs.lessonScene.innerHTML = `
+    <figure class="scene-figure">
+      <img src="${asset.src}" alt="${asset.alt}" loading="lazy" />
+      <figcaption>${asset.caption}</figcaption>
+    </figure>
+  `;
 }
 
 function getGradeBook(gradeValue) {
@@ -1404,6 +1653,9 @@ function renderLessonDetail() {
   if (!lesson) {
     refs.lessonTitle.textContent = "请选择课文";
     refs.lessonMeta.textContent = "-";
+    if (refs.lessonScene) {
+      refs.lessonScene.innerHTML = `<p class="meta">请选择课文后显示配图。</p>`;
+    }
     refs.lessonText.innerHTML = `<p class="meta">暂无课文内容。</p>`;
     refs.focusChars.innerHTML = "";
     refs.keywordList.innerHTML = "";
@@ -1424,6 +1676,7 @@ function renderLessonDetail() {
   refs.lessonMeta.textContent = `${lesson._gradeLabel} · ${lesson._term} · ${lesson._unitTitle || "语文单元"}`;
   refs.markDoneBtn.textContent = isLessonDone(lesson.id) ? "取消掌握标记" : "标记本课已掌握";
 
+  renderLessonScene(lesson);
   renderLessonText(lesson);
   renderFocusChars(lesson);
   renderKeywords(lesson);

@@ -216,6 +216,33 @@ button.ghost {
   gap: 10px;
 }
 
+.lesson-scene {
+  border: 1px solid #dce5f6;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 10px;
+}
+
+.scene-figure {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.scene-figure img {
+  width: 100%;
+  border: 1px solid #d8e2f1;
+  border-radius: 10px;
+  background: #fff;
+  display: block;
+}
+
+.scene-figure figcaption {
+  margin: 0;
+  color: #52607a;
+  font-size: 12px;
+}
+
 .lesson-text {
   display: grid;
   gap: 8px;
