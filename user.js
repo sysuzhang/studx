@@ -498,6 +498,24 @@ function activityMessage(log) {
   if (log.type === "cloud_sync_download") {
     return `从云端下载学习进度（版本 ${log.payload?.version || 1}）`;
   }
+  if (log.type === "textbook_lesson_done") {
+    return `小学语文课本：${log.payload?.done ? "标记完成" : "取消完成"}课文（${log.payload?.lessonId || ""}）`;
+  }
+  if (log.type === "textbook_task_update") {
+    return `小学语文任务：第 ${Number(log.payload?.taskIndex) + 1 || 1} 项${log.payload?.checked ? "已完成" : "取消完成"}`;
+  }
+  if (log.type === "textbook_quiz_submit") {
+    return `课后小测：得分 ${log.payload?.score || 0}（${log.payload?.passed ? "达标" : "待提升"}）`;
+  }
+  if (log.type === "textbook_reading_assess") {
+    return `课文朗读评分：${log.payload?.score || 0} 分（错字 ${log.payload?.weakCount || 0}）`;
+  }
+  if (log.type === "textbook_chars_to_worksheet") {
+    return `课本生字加入字帖：${log.payload?.count || 0} 字`;
+  }
+  if (log.type === "textbook_quiz_wrong_to_worksheet" || log.type === "textbook_reading_weak_to_worksheet") {
+    return `课本错字加入字帖：${log.payload?.count || 0} 字`;
+  }
   if (log.type === "worksheet_workbook_generate") {
     return `生成分级字帖本：${log.payload?.level || ""}（${log.payload?.chars || 0} 字）`;
   }

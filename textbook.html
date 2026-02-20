@@ -101,6 +101,38 @@
             </div>
           </section>
 
+          <section class="enhance-grid">
+            <article class="enhance-card">
+              <h3>课后小测（自动判分）</h3>
+              <p id="quizMeta" class="meta">根据本课生字词自动生成测题。</p>
+              <div class="actions compact">
+                <button id="regenQuizBtn" type="button" class="ghost">重新出题</button>
+                <button id="submitQuizBtn" type="button">提交判分</button>
+                <button id="addQuizWrongBtn" type="button" class="ghost">错题字加入字帖</button>
+              </div>
+              <form id="quizForm" class="quiz-form"></form>
+              <p id="quizResult" class="meta">测评结果：-</p>
+            </article>
+
+            <article class="enhance-card">
+              <h3>课文朗读录音打分与错字诊断</h3>
+              <p id="readingSupport" class="meta">使用浏览器语音识别进行朗读评分与错字分析。</p>
+              <div class="actions compact">
+                <button id="readingStartBtn" type="button">开始录音</button>
+                <button id="readingStopBtn" type="button" class="ghost">停止录音</button>
+                <button id="readingScoreBtn" type="button" class="ghost">生成评分</button>
+                <button id="readingAddWeakBtn" type="button" class="ghost">错字加入字帖</button>
+              </div>
+              <textarea
+                id="readingTranscriptInput"
+                rows="4"
+                placeholder="识别文本会显示在这里，也可手动粘贴后点击“生成评分”"
+              ></textarea>
+              <p id="readingScoreMeta" class="meta">朗读评分：-</p>
+              <div id="readingDiagnosis" class="diagnosis-box"></div>
+            </article>
+          </section>
+
           <p id="actionTip" class="meta">提示：可将本课生字一键加入字帖工坊进行书写巩固。</p>
         </article>
       </section>
