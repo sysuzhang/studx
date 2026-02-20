@@ -331,6 +331,15 @@ function renderDictionaryDetailByChar(char, options) {
   }
 }
 
+function getDefaultDictionaryChar() {
+  const fromDict = state.dictionaryEntries.find((entry) => entry?.char)?.char;
+  if (fromDict) {
+    return String(fromDict);
+  }
+  const fromLibrary = state.library.find((entry) => entry?.char)?.char;
+  return fromLibrary ? String(fromLibrary) : "";
+}
+
 function openDictionaryDrawer(char, options) {
   if (!refs.dictDrawerMask) {
     return;
@@ -339,7 +348,7 @@ function openDictionaryDrawer(char, options) {
   refs.dictDrawerMask.classList.add("open");
   refs.dictDrawerMask.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
-  const targetChar = String(char || "").trim() || state.selectedChar || "";
+  const targetChar = String(char || "").trim() || state.selectedChar || getDefaultDictionaryChar();
   renderDictionarySuggestions(targetChar);
   renderDictionaryDetailByChar(targetChar, options);
 }
