@@ -502,6 +502,40 @@ button.ghost {
   letter-spacing: 0.3px;
 }
 
+.cell-char.pinyin-track.layered {
+  letter-spacing: normal;
+}
+
+.pinyin-layer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  max-width: 100%;
+}
+
+.pinyin-layer .pinyin-sm {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.pinyin-layer .pinyin-sm.empty {
+  min-width: 0.3em;
+}
+
+.pinyin-layer .pinyin-ym {
+  color: #059669;
+  font-weight: 700;
+}
+
+.pinyin-layer .pinyin-tone {
+  color: #d97706;
+  font-weight: 800;
+}
+
+.pinyin-layer.compact {
+  gap: 0;
+}
+
 .cell-pinyin {
   position: absolute;
   top: 2px;
@@ -521,6 +555,10 @@ button.ghost {
 .cell-pinyin.compact {
   font-size: calc(var(--cell-size) * 0.16);
   color: #475569;
+}
+
+.cell-pinyin .pinyin-layer {
+  font-size: inherit;
 }
 
 .cell-origin-char {

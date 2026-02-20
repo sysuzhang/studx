@@ -18,6 +18,10 @@ const refs = {
   traceMode: document.getElementById("traceMode"),
   showGuide: document.getElementById("showGuide"),
   showPinyin: document.getElementById("showPinyin"),
+  colorizePinyinLayers: document.getElementById("colorizePinyinLayers"),
+  fourlineDemoRatio: document.getElementById("fourlineDemoRatio"),
+  fourlineBlankRatio: document.getElementById("fourlineBlankRatio"),
+  fourlineRatioMeta: document.getElementById("fourlineRatioMeta"),
   templateTip: document.getElementById("templateTip"),
   generateBtn: document.getElementById("generateBtn"),
   printBtn: document.getElementById("printBtn"),
@@ -155,6 +159,9 @@ const GRADE_TEMPLATE_PRESETS = {
     cellSize: null,
     repeatCount: null,
     showPinyin: false,
+    colorizePinyinLayers: true,
+    fourlineDemoRatio: 30,
+    fourlineBlankRatio: 60,
     writingTrack: "hanzi",
   },
   g12_tian: {
@@ -165,6 +172,9 @@ const GRADE_TEMPLATE_PRESETS = {
     cellSize: 60,
     repeatCount: 10,
     showPinyin: false,
+    colorizePinyinLayers: true,
+    fourlineDemoRatio: 30,
+    fourlineBlankRatio: 60,
     writingTrack: "hanzi",
   },
   g36_fourline: {
@@ -175,11 +185,72 @@ const GRADE_TEMPLATE_PRESETS = {
     cellSize: 66,
     repeatCount: 8,
     showPinyin: true,
+    colorizePinyinLayers: true,
+    fourlineDemoRatio: 34,
+    fourlineBlankRatio: 58,
     writingTrack: "pinyin",
   },
 };
 
 const STROKE_HIGHLIGHT_STEP_MS = 760;
+const PINYIN_INITIALS = [
+  "zh",
+  "ch",
+  "sh",
+  "b",
+  "p",
+  "m",
+  "f",
+  "d",
+  "t",
+  "n",
+  "l",
+  "g",
+  "k",
+  "h",
+  "j",
+  "q",
+  "x",
+  "r",
+  "z",
+  "c",
+  "s",
+  "y",
+  "w",
+];
+const PINYIN_TONE_SYMBOL = {
+  1: "ˉ",
+  2: "ˊ",
+  3: "ˇ",
+  4: "ˋ",
+  5: "·",
+};
+const PINYIN_TONE_MARK_MAP = {
+  ā: { base: "a", tone: 1 },
+  á: { base: "a", tone: 2 },
+  ǎ: { base: "a", tone: 3 },
+  à: { base: "a", tone: 4 },
+  ē: { base: "e", tone: 1 },
+  é: { base: "e", tone: 2 },
+  ě: { base: "e", tone: 3 },
+  è: { base: "e", tone: 4 },
+  ī: { base: "i", tone: 1 },
+  í: { base: "i", tone: 2 },
+  ǐ: { base: "i", tone: 3 },
+  ì: { base: "i", tone: 4 },
+  ō: { base: "o", tone: 1 },
+  ó: { base: "o", tone: 2 },
+  ǒ: { base: "o", tone: 3 },
+  ò: { base: "o", tone: 4 },
+  ū: { base: "u", tone: 1 },
+  ú: { base: "u", tone: 2 },
+  ǔ: { base: "u", tone: 3 },
+  ù: { base: "u", tone: 4 },
+  ǖ: { base: "ü", tone: 1 },
+  ǘ: { base: "ü", tone: 2 },
+  ǚ: { base: "ü", tone: 3 },
+  ǜ: { base: "ü", tone: 4 },
+};
 
 function refreshSpeechVoice() {
   if (!("speechSynthesis" in window)) {
@@ -303,10 +374,24 @@ function refreshPracticeModeUI() {
   if (refs.showPinyin) {
     refs.showPinyin.disabled = !hanziMode;
   }
+  if (refs.colorizePinyinLayers) {
+    refs.colorizePinyinLayers.disabled = !hanziMode;
+  }
+  if (refs.fourlineDemoRatio) {
+    refs.fourlineDemoRatio.disabled = !hanziMode;
+  }
+  if (refs.fourlineBlankRatio) {
+    refs.fourlineBlankRatio.disabled = !hanziMode;
+  }
   if (refs.templateTip && !hanziMode) {
     refs.templateTip.textContent = "数学数字模式下不使用年级模板与拼音标注。";
   } else if (refs.templateTip) {
     refs.templateTip.textContent = getTemplateTipText(refs.gradeTemplateSelect?.value || "custom");
+  }
+  if (!hanziMode && refs.fourlineRatioMeta) {
+    refs.fourlineRatioMeta.textContent = "数学数字模式下不使用四线三格占比。";
+  } else {
+    refreshFourlineRatioMeta();
   }
 }
 
@@ -495,10 +580,19 @@ function getWorksheetConfig() {
   const rawColumns = Math.min(Math.max(toInt(refs.columns.value, 10), 4), 20);
   const rawCellSize = Math.min(Math.max(toInt(refs.cellSize.value, 60), 40), 90);
   const showPinyin = Boolean(refs.showPinyin?.checked);
+  const colorizePinyinLayers = Boolean(refs.colorizePinyinLayers?.checked);
+  const rawFourlineDemoRatio = clampNumber(refs.fourlineDemoRatio?.value, 10, 80, 30);
+  const rawFourlineBlankRatio = clampNumber(refs.fourlineBlankRatio?.value, 0, 100, 60);
   const writingTrack =
     preset.id === "custom" ? (rawGridType === "fourline" ? "pinyin" : "hanzi") : preset.writingTrack || "hanzi";
   const templateLabel =
     preset.id === "custom" && rawGridType === "fourline" ? "自定义（四线三格）" : preset.label;
+  const fourlineDemoRatio = Number.isFinite(preset.fourlineDemoRatio) && preset.id !== "custom"
+    ? preset.fourlineDemoRatio
+    : rawFourlineDemoRatio;
+  const fourlineBlankRatio = Number.isFinite(preset.fourlineBlankRatio) && preset.id !== "custom"
+    ? preset.fourlineBlankRatio
+    : rawFourlineBlankRatio;
   return {
     templateId,
     templateLabel,
@@ -509,8 +603,41 @@ function getWorksheetConfig() {
     traceMode: refs.traceMode.value,
     showGuide: refs.showGuide.checked,
     showPinyin: preset.showPinyin || showPinyin || (preset.id === "custom" && rawGridType === "fourline"),
+    colorizePinyinLayers:
+      preset.id === "custom"
+        ? colorizePinyinLayers
+        : Boolean((preset.colorizePinyinLayers ?? colorizePinyinLayers) || preset.showPinyin),
+    fourlineDemoRatio,
+    fourlineBlankRatio,
     writingTrack,
   };
+}
+
+function getFourlineCellPlan(repeatCount, demoRatio, blankRatio) {
+  const total = Math.min(Math.max(toInt(repeatCount, 10), 2), 24);
+  const modelCount = Math.min(total - 1, Math.max(1, Math.round((total * clampNumber(demoRatio, 10, 80, 30)) / 100)));
+  const practiceCount = Math.max(0, total - modelCount);
+  const blankCount = Math.min(
+    practiceCount,
+    Math.max(0, Math.round((practiceCount * clampNumber(blankRatio, 0, 100, 60)) / 100))
+  );
+  const traceCount = Math.max(0, practiceCount - blankCount);
+  return {
+    repeatCount: total,
+    modelCount,
+    traceCount,
+    blankCount,
+  };
+}
+
+function refreshFourlineRatioMeta() {
+  if (!refs.fourlineRatioMeta) {
+    return;
+  }
+  const plan = getFourlineCellPlan(refs.repeatCount?.value, refs.fourlineDemoRatio?.value, refs.fourlineBlankRatio?.value);
+  const tipText = `四线三格分配：示范格 ${plan.modelCount}，描红格 ${plan.traceCount}，留白临写格 ${plan.blankCount}（每字 ${plan.repeatCount} 格）。`;
+  refs.fourlineRatioMeta.textContent =
+    refs.gridType?.value === "fourline" ? tipText : `${tipText}（切换到四线三格后生效）`;
 }
 
 function getGradeTemplatePreset(templateId) {
@@ -519,10 +646,14 @@ function getGradeTemplatePreset(templateId) {
 
 function getTemplateTipText(templateId) {
   const preset = getGradeTemplatePreset(templateId);
+  const plan = getFourlineCellPlan(refs.repeatCount?.value, refs.fourlineDemoRatio?.value, refs.fourlineBlankRatio?.value);
   if (preset.id === "custom") {
     return refs.gridType?.value === "fourline"
-      ? "当前为自定义四线三格，可用于拼音书写与 PDF 导出。"
+      ? `当前为自定义四线三格：示范 ${plan.modelCount} 格 / 描红 ${plan.traceCount} 格 / 留白 ${plan.blankCount} 格。`
       : "模板可一键切换为小学年级常用练习版式，并用于 PDF 导出。";
+  }
+  if (preset.gridType === "fourline") {
+    return `当前模板：${preset.label}。拼音分层着色已启用，分配为示范 ${plan.modelCount} 格 / 描红 ${plan.traceCount} 格 / 留白 ${plan.blankCount} 格。`;
   }
   return `当前模板：${preset.label}。将自动应用 ${
     preset.gridType === "fourline" ? "四线三格拼音练习" : "田字格汉字练习"
@@ -551,7 +682,17 @@ function applyGradeTemplatePreset(templateId) {
     if (refs.showPinyin) {
       refs.showPinyin.checked = Boolean(preset.showPinyin);
     }
+    if (refs.colorizePinyinLayers) {
+      refs.colorizePinyinLayers.checked = Boolean(preset.colorizePinyinLayers ?? true);
+    }
+    if (refs.fourlineDemoRatio && Number.isFinite(preset.fourlineDemoRatio)) {
+      refs.fourlineDemoRatio.value = String(clampNumber(preset.fourlineDemoRatio, 10, 80, 30));
+    }
+    if (refs.fourlineBlankRatio && Number.isFinite(preset.fourlineBlankRatio)) {
+      refs.fourlineBlankRatio.value = String(clampNumber(preset.fourlineBlankRatio, 0, 100, 60));
+    }
   }
+  refreshFourlineRatioMeta();
   if (refs.templateTip) {
     refs.templateTip.textContent = getTemplateTipText(preset.id);
   }
@@ -571,6 +712,73 @@ function switchTemplateToCustomOnManualEdit() {
 
 function getCharPinyin(char) {
   return HANZI_PINYIN_MAP.get(char) || "";
+}
+
+function normalizePrimaryPinyin(pinyin) {
+  const primary = String(pinyin || "")
+    .trim()
+    .toLowerCase()
+    .split(/[\/|,;；、\s]+/)
+    .find(Boolean);
+  return primary || "";
+}
+
+function parsePinyinLayers(rawPinyin) {
+  const primary = normalizePrimaryPinyin(rawPinyin);
+  if (!primary) {
+    return null;
+  }
+  let tone = 5;
+  let baseText = "";
+  [...primary].forEach((char) => {
+    if (PINYIN_TONE_MARK_MAP[char]) {
+      tone = PINYIN_TONE_MARK_MAP[char].tone;
+      baseText += PINYIN_TONE_MARK_MAP[char].base;
+      return;
+    }
+    if (/[1-5]/.test(char)) {
+      tone = Number(char);
+      return;
+    }
+    if (char === "v") {
+      baseText += "ü";
+      return;
+    }
+    baseText += char;
+  });
+  if (!baseText) {
+    return null;
+  }
+  const initial = PINYIN_INITIALS.find((item) => baseText.startsWith(item)) || "";
+  const finalPart = baseText.slice(initial.length) || baseText;
+  return {
+    primary,
+    initial,
+    finalPart,
+    tone,
+    toneMark: PINYIN_TONE_SYMBOL[tone] || PINYIN_TONE_SYMBOL[5],
+  };
+}
+
+function createPinyinLayerNode(layers, options) {
+  const node = document.createElement("span");
+  node.className = `pinyin-layer${options?.compact ? " compact" : ""}`.trim();
+  const sm = document.createElement("span");
+  sm.className = "pinyin-sm";
+  sm.textContent = layers?.initial || "";
+  if (!layers?.initial) {
+    sm.classList.add("empty");
+  }
+  const ym = document.createElement("span");
+  ym.className = "pinyin-ym";
+  ym.textContent = layers?.finalPart || "";
+  const sd = document.createElement("span");
+  sd.className = "pinyin-tone";
+  sd.textContent = layers?.toneMark || PINYIN_TONE_SYMBOL[5];
+  node.appendChild(sm);
+  node.appendChild(ym);
+  node.appendChild(sd);
+  return node;
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -928,8 +1136,11 @@ function createWorkbookRecord(input) {
       showGuide: true,
       repeatCount: input.repeatCount,
       showPinyin: Boolean(currentConfig.showPinyin),
+      colorizePinyinLayers: Boolean(currentConfig.colorizePinyinLayers),
       templateId: currentConfig.templateId || "custom",
       templateLabel: currentConfig.templateLabel || "自定义配置",
+      fourlineDemoRatio: currentConfig.fourlineDemoRatio,
+      fourlineBlankRatio: currentConfig.fourlineBlankRatio,
       writingTrack: currentConfig.writingTrack || "hanzi",
     },
   };
@@ -940,6 +1151,10 @@ function createWorkbookCoverPage(book) {
   cover.className = "worksheet-page workbook-cover";
   const ageLabel = getOptionLabel(DEFAULT_AGE_GROUPS, book.ageGroup);
   const focusText = book.focusChars?.length ? `${book.focusChars.join("")}` : "无";
+  const fourlineRatioText =
+    book.configSnapshot?.gridType === "fourline"
+      ? `示范 ${book.configSnapshot?.fourlineDemoRatio || 30}% / 留白 ${book.configSnapshot?.fourlineBlankRatio || 60}%`
+      : "默认";
   cover.innerHTML = `
     <div class="cover-title">${book.title}</div>
     <div class="cover-subtitle">第 ${book.cycle} 册 · 生成时间：${formatTime(book.createdAt || 0)}</div>
@@ -951,6 +1166,7 @@ function createWorkbookCoverPage(book) {
       <div class="meta-card">掌握阈值：${book.threshold}</div>
       <div class="meta-card">未达标优先：${book.prioritizeWeak ? "是" : "否"}</div>
       <div class="meta-card">模板：${book.configSnapshot?.templateLabel || "自定义配置"}</div>
+      <div class="meta-card">四线三格占比：${fourlineRatioText}</div>
       <div class="meta-card">强化标记字：${focusText}</div>
       <div class="meta-card">来源：${book.sourceBookId ? `由 ${book.sourceBookId} 循环生成` : "首次生成"}</div>
     </div>
@@ -1029,8 +1245,11 @@ function patchActiveWorkbookConfigSnapshot() {
       cellSize: config.cellSize,
       repeatCount: config.repeatCount,
       showPinyin: Boolean(config.showPinyin),
+      colorizePinyinLayers: Boolean(config.colorizePinyinLayers),
       templateId: config.templateId || "custom",
       templateLabel: config.templateLabel || "自定义配置",
+      fourlineDemoRatio: config.fourlineDemoRatio,
+      fourlineBlankRatio: config.fourlineBlankRatio,
       writingTrack: config.writingTrack || "hanzi",
     },
   });
@@ -1230,7 +1449,9 @@ function getPdfFileName() {
   const min = `${date.getMinutes()}`.padStart(2, "0");
   const modeLabel = isHanziMode() ? "汉字字帖" : "数学字帖";
   const templateLabel = (config.templateLabel || "自定义").replace(/[\\/:*?"<>|]/g, "_");
-  return `${modeLabel}_${templateLabel}_${y}${m}${d}_${h}${min}.pdf`;
+  const ratioLabel =
+    config.gridType === "fourline" ? `_示范${config.fourlineDemoRatio}_留白${config.fourlineBlankRatio}` : "";
+  return `${modeLabel}_${templateLabel}${ratioLabel}_${y}${m}${d}_${h}${min}.pdf`;
 }
 
 async function exportWorksheetPdf() {
@@ -1271,9 +1492,13 @@ async function exportWorksheetPdf() {
     }
     pdf.save(getPdfFileName());
     if (store && typeof store.logActivity === "function") {
+      const activeConfig = getWorksheetConfig();
       store.logActivity("worksheet_export_pdf", {
         pages: pages.length,
-        templateId: getWorksheetConfig().templateId || "custom",
+        templateId: activeConfig.templateId || "custom",
+        gridType: activeConfig.gridType,
+        fourlineDemoRatio: activeConfig.fourlineDemoRatio,
+        fourlineBlankRatio: activeConfig.fourlineBlankRatio,
         source: "worksheet_pdf_export",
       });
     }
@@ -1298,14 +1523,34 @@ function tryPrintWorksheet(source) {
 function buildCells(chars, config, opts) {
   const weakSet = opts?.weakSet instanceof Set ? opts.weakSet : new Set();
   const hanziMode = opts?.hanziMode !== false;
+  const fourlinePlan = hanziMode && config.gridType === "fourline"
+    ? getFourlineCellPlan(config.repeatCount, config.fourlineDemoRatio, config.fourlineBlankRatio)
+    : null;
   const cells = [];
   chars.forEach((char) => {
     const pinyin = hanziMode ? getCharPinyin(char) : "";
+    const pinyinLayers = parsePinyinLayers(pinyin);
+    const pinyinDisplay = pinyinLayers
+      ? `${pinyinLayers.initial}${pinyinLayers.finalPart}${pinyinLayers.toneMark}`
+      : pinyin;
+    const pinyinTrackText = config.colorizePinyinLayers ? pinyinDisplay : pinyin;
     const displayText =
-      hanziMode && config.writingTrack === "pinyin" ? (pinyin ? pinyin.replace(/\s+/g, "") : char) : char;
+      hanziMode && config.writingTrack === "pinyin"
+        ? pinyinTrackText
+          ? pinyinTrackText.replace(/\s+/g, "")
+          : char
+        : char;
     for (let i = 0; i < config.repeatCount; i += 1) {
       let mode = "hidden";
-      if (i === 0 && config.showGuide) {
+      if (fourlinePlan) {
+        if (i < fourlinePlan.modelCount && config.showGuide) {
+          mode = "model";
+        } else if (i < fourlinePlan.modelCount + fourlinePlan.traceCount && config.showGuide) {
+          mode = "trace";
+        } else {
+          mode = "hidden";
+        }
+      } else if (i === 0 && config.showGuide) {
         mode = "model";
       } else if (i > 0 && config.traceMode === "trace" && config.showGuide) {
         mode = "trace";
@@ -1314,6 +1559,7 @@ function buildCells(chars, config, opts) {
         char,
         displayText,
         pinyin,
+        pinyinLayers,
         mode,
         weak: weakSet.has(char),
       });
@@ -1382,13 +1628,22 @@ function renderWorksheet(chars, options) {
       if (item.weak && (item.mode === "model" || item.mode === "trace")) {
         charNode.classList.add("weak-target");
       }
-      charNode.textContent = item.displayText || item.char;
+      if (hanziMode && config.writingTrack === "pinyin" && config.colorizePinyinLayers && item.pinyinLayers) {
+        charNode.classList.add("layered");
+        charNode.appendChild(createPinyinLayerNode(item.pinyinLayers));
+      } else {
+        charNode.textContent = item.displayText || item.char;
+      }
 
       cell.appendChild(charNode);
       if (hanziMode && config.showPinyin && item.mode !== "hidden" && item.pinyin) {
         const pinyinNode = document.createElement("span");
         pinyinNode.className = `cell-pinyin${config.writingTrack === "pinyin" ? " compact" : ""}`;
-        pinyinNode.textContent = item.pinyin;
+        if (config.colorizePinyinLayers && item.pinyinLayers) {
+          pinyinNode.appendChild(createPinyinLayerNode(item.pinyinLayers, { compact: config.writingTrack === "pinyin" }));
+        } else {
+          pinyinNode.textContent = item.pinyin;
+        }
         cell.appendChild(pinyinNode);
       }
       if (hanziMode && config.writingTrack === "pinyin" && item.mode !== "hidden") {
@@ -1680,6 +1935,36 @@ function bindEvents() {
     if (!patchActiveWorkbookConfigSnapshot()) {
       regenerate({ preserveWorkbook: Boolean(state.activeWorkbookId) });
     }
+    refreshFourlineRatioMeta();
+    if (refs.templateTip) {
+      refs.templateTip.textContent = getTemplateTipText(refs.gradeTemplateSelect?.value || "custom");
+    }
+  });
+
+  refs.colorizePinyinLayers?.addEventListener("change", () => {
+    switchTemplateToCustomOnManualEdit();
+    if (!patchActiveWorkbookConfigSnapshot()) {
+      regenerate({ preserveWorkbook: Boolean(state.activeWorkbookId) });
+    }
+    if (refs.templateTip) {
+      refs.templateTip.textContent = getTemplateTipText(refs.gradeTemplateSelect?.value || "custom");
+    }
+  });
+
+  [refs.fourlineDemoRatio, refs.fourlineBlankRatio].forEach((node) => {
+    node?.addEventListener("input", () => {
+      switchTemplateToCustomOnManualEdit();
+      refreshFourlineRatioMeta();
+      if (state.chars.length) {
+        if (patchActiveWorkbookConfigSnapshot()) {
+          return;
+        }
+        renderWorksheet(state.chars);
+      }
+      if (refs.templateTip) {
+        refs.templateTip.textContent = getTemplateTipText(refs.gradeTemplateSelect?.value || "custom");
+      }
+    });
   });
 
   refs.generateBtn.addEventListener("click", regenerate);
@@ -1870,6 +2155,10 @@ function bindEvents() {
   ].forEach((node) => {
     node.addEventListener("change", () => {
       switchTemplateToCustomOnManualEdit();
+      refreshFourlineRatioMeta();
+      if (refs.templateTip) {
+        refs.templateTip.textContent = getTemplateTipText(refs.gradeTemplateSelect?.value || "custom");
+      }
       if (state.chars.length) {
         if (patchActiveWorkbookConfigSnapshot()) {
           return;
@@ -1905,6 +2194,16 @@ function bootstrap() {
   if (refs.showPinyin && params.get("pinyin") === "1") {
     refs.showPinyin.checked = true;
   }
+  if (refs.colorizePinyinLayers && params.get("pinyinLayerColor") === "0") {
+    refs.colorizePinyinLayers.checked = false;
+  }
+  if (refs.fourlineDemoRatio && params.get("demoRatio")) {
+    refs.fourlineDemoRatio.value = String(clampNumber(params.get("demoRatio"), 10, 80, 30));
+  }
+  if (refs.fourlineBlankRatio && params.get("blankRatio")) {
+    refs.fourlineBlankRatio.value = String(clampNumber(params.get("blankRatio"), 0, 100, 60));
+  }
+  refreshFourlineRatioMeta();
   refreshPracticeModeUI();
   const presetSource =
     state.practiceMode === "math" ? params.get("expr") || params.get("chars") || "" : params.get("chars") || "";

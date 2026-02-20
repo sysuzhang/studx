@@ -92,7 +92,17 @@
 
             <label for="showPinyin">拼音标注</label>
             <input id="showPinyin" type="checkbox" />
+
+            <label for="colorizePinyinLayers">拼音分层着色</label>
+            <input id="colorizePinyinLayers" type="checkbox" checked />
+
+            <label for="fourlineDemoRatio">四线三格示范格占比 (%)</label>
+            <input id="fourlineDemoRatio" type="range" min="10" max="80" value="30" />
+
+            <label for="fourlineBlankRatio">四线三格留白临写占比 (%)</label>
+            <input id="fourlineBlankRatio" type="range" min="0" max="100" value="60" />
           </div>
+          <p id="fourlineRatioMeta" class="hint">四线三格分配：示范格 3，描红格 3，留白临写格 4（每字 10 格）。</p>
           <p id="templateTip" class="hint">模板可一键切换为小学年级常用练习版式，并用于 PDF 导出。</p>
         </section>
 

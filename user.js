@@ -440,7 +440,11 @@ function activityMessage(log) {
     return "清空了字帖收藏夹";
   }
   if (log.type === "worksheet_export_pdf") {
-    return `导出了字帖 PDF（${log.payload?.pages || 0} 页，模板：${log.payload?.templateId || "custom"}）`;
+    const ratioText =
+      log.payload?.gridType === "fourline"
+        ? `，四线三格示范${log.payload?.fourlineDemoRatio || 0}%/留白${log.payload?.fourlineBlankRatio || 0}%`
+        : "";
+    return `导出了字帖 PDF（${log.payload?.pages || 0} 页，模板：${log.payload?.templateId || "custom"}${ratioText}）`;
   }
   if (log.type === "follow_reading") {
     const levelMap = { ok: "匹配", warn: "接近", bad: "待改进" };
