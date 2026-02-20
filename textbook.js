@@ -46,6 +46,11 @@ const refs = {
 
 const store = window.LearningStore;
 const books = Array.isArray(window.PRIMARY_TEXTBOOK_LIBRARY) ? window.PRIMARY_TEXTBOOK_LIBRARY : [];
+const sceneMetaSource = window.PRIMARY_TEXTBOOK_SCENE_META;
+const sceneMetaMap =
+  sceneMetaSource && typeof sceneMetaSource === "object" && !Array.isArray(sceneMetaSource)
+    ? sceneMetaSource
+    : {};
 const hanziLib = Array.isArray(window.HANZI_LIBRARY) ? window.HANZI_LIBRARY : [];
 const PROGRESS_KEY = "primaryTextbookProgressV1";
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -89,12 +94,18 @@ const hanziMap = new Map(
 
 const allLessons = books.flatMap((grade) =>
   (grade.terms || []).flatMap((term) =>
-    (term.lessons || []).map((lesson) => ({
-      ...lesson,
-      _gradeLabel: grade.label || `${grade.grade}年级`,
-      _term: term.term || "",
-      _unitTitle: term.unitTitle || "",
-    }))
+    (term.lessons || []).map((lesson) => {
+      const lessonId = String(lesson?.id || "");
+      const manualSceneMeta =
+        sceneMetaMap[lessonId] && typeof sceneMetaMap[lessonId] === "object" ? sceneMetaMap[lessonId] : null;
+      return {
+        ...lesson,
+        _gradeLabel: grade.label || `${grade.grade}年级`,
+        _term: term.term || "",
+        _unitTitle: term.unitTitle || "",
+        _sceneMeta: manualSceneMeta,
+      };
+    })
   )
 );
 
@@ -111,7 +122,7 @@ const LESSON_SCENE_THEMES = [
   {
     id: "campus",
     label: "校园课堂",
-    tokens: ["校园", "教室", "老师", "值日", "同学", "书包", "课堂"],
+    tokens: ["校园", "教室", "老师", "值日", "值日生", "同学", "书包", "课堂", "合作", "积木"],
     skyA: "#dbeafe",
     skyB: "#eef6ff",
     ground: "#d1fae5",
@@ -122,7 +133,7 @@ const LESSON_SCENE_THEMES = [
   {
     id: "park",
     label: "公园自然",
-    tokens: ["春", "秋", "公园", "树", "花", "风筝", "种子", "叶"],
+    tokens: ["春", "秋", "公园", "自然", "树", "花", "风筝", "种子", "传播", "叶"],
     skyA: "#d9f99d",
     skyB: "#e7f8cf",
     ground: "#bbf7d0",
@@ -133,7 +144,7 @@ const LESSON_SCENE_THEMES = [
   {
     id: "home",
     label: "家庭生活",
-    tokens: ["家", "妈妈", "爸爸", "早饭", "早晨", "家庭"],
+    tokens: ["家", "妈妈", "爸爸", "早饭", "早餐", "早晨", "家庭"],
     skyA: "#fef3c7",
     skyB: "#fff7df",
     ground: "#fde68a",
@@ -166,7 +177,7 @@ const LESSON_SCENE_THEMES = [
   {
     id: "culture",
     label: "文化表达",
-    tokens: ["阅读", "写作", "观点", "节日", "成长", "未来", "讨论", "倾听"],
+    tokens: ["阅读", "写作", "观点", "礼貌", "诚信", "合作", "节日", "成长", "毕业", "寄语", "未来", "讨论", "争论", "倾听", "表达", "条理", "感恩"],
     skyA: "#ddd6fe",
     skyB: "#ede9fe",
     ground: "#e9d5ff",
@@ -177,7 +188,7 @@ const LESSON_SCENE_THEMES = [
   {
     id: "science",
     label: "科学观察",
-    tokens: ["科学", "实验", "河流", "年轮", "观察", "声音"],
+    tokens: ["科学", "实验", "河流", "年轮", "观察", "记录", "日记", "声音"],
     skyA: "#cffafe",
     skyB: "#e6fcff",
     ground: "#bae6fd",
@@ -274,6 +285,49 @@ function normalizeKeyword(text) {
     .toLowerCase();
 }
 
+function normalizeSceneRoleType(roleType) {
+  const value = String(roleType || "")
+    .trim()
+    .toLowerCase();
+  if (value === "teacher" || value === "family") {
+    return value;
+  }
+  return "student";
+}
+
+function getSceneRoleLabel(roleType) {
+  if (roleType === "teacher") {
+    return "老师";
+  }
+  if (roleType === "family") {
+    return "家人";
+  }
+  return "学生";
+}
+
+function getLessonSceneKeywords(lesson) {
+  const fromMeta = Array.isArray(lesson?._sceneMeta?.themeKeywords)
+    ? lesson._sceneMeta.themeKeywords
+    : [];
+  return uniqueArray(
+    fromMeta
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  );
+}
+
+function matchThemeByKeywords(keywords) {
+  const list = uniqueArray((keywords || []).map((item) => String(item || "").trim()).filter(Boolean));
+  if (!list.length) {
+    return null;
+  }
+  return (
+    LESSON_SCENE_THEMES.find((theme) =>
+      list.some((keyword) => (theme.tokens || []).some((token) => keyword.includes(token) || token.includes(keyword)))
+    ) || null
+  );
+}
+
 function escapeSvgText(text) {
   return String(text || "").replace(/[&<>"']/g, (char) => {
     const map = {
@@ -288,15 +342,20 @@ function escapeSvgText(text) {
 }
 
 function resolveLessonSceneTheme(lesson) {
+  const manualKeywords = getLessonSceneKeywords(lesson);
+  const fromManual = matchThemeByKeywords(manualKeywords);
+  if (fromManual) {
+    return fromManual;
+  }
   const corpus = [
     lesson?.title || "",
     ...(lesson?.text || []),
     ...(lesson?.tasks || []),
     ...(lesson?.keywords || []).map((item) => item.word || ""),
-  ].join(" ");
-  const matched = LESSON_SCENE_THEMES.find((theme) =>
-    (theme.tokens || []).some((token) => token && corpus.includes(token))
-  );
+  ]
+    .join(" ")
+    .trim();
+  const matched = LESSON_SCENE_THEMES.find((theme) => (theme.tokens || []).some((token) => token && corpus.includes(token)));
   return matched || LESSON_SCENE_THEMES[0];
 }
 
@@ -368,23 +427,89 @@ function buildSceneDecor(theme) {
   `;
 }
 
+function buildCartoonRole(theme, roleType) {
+  const role = normalizeSceneRoleType(roleType);
+  if (role === "teacher") {
+    return `
+      <g transform="translate(638,190)">
+        <ellipse cx="112" cy="224" rx="92" ry="20" fill="#94a3b8" opacity="0.22"/>
+        <circle cx="112" cy="88" r="44" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
+        <circle cx="98" cy="80" r="5" fill="#0f172a"/>
+        <circle cx="126" cy="80" r="5" fill="#0f172a"/>
+        <rect x="90" y="70" width="16" height="2" fill="#0f172a"/>
+        <rect x="120" y="70" width="16" height="2" fill="#0f172a"/>
+        <path d="M94 106 Q112 120 130 106" fill="none" stroke="#7c2d12" stroke-width="4" stroke-linecap="round"/>
+        <rect x="66" y="130" width="92" height="110" rx="20" fill="${theme.outfit}"/>
+        <rect x="58" y="150" width="22" height="78" rx="11" fill="${theme.outfit}"/>
+        <rect x="144" y="148" width="22" height="68" rx="11" fill="${theme.outfit}"/>
+        <rect x="156" y="120" width="6" height="36" rx="3" fill="#f8fafc"/>
+        <rect x="76" y="236" width="24" height="54" rx="10" fill="#334155"/>
+        <rect x="124" y="236" width="24" height="54" rx="10" fill="#334155"/>
+      </g>
+    `;
+  }
+  if (role === "family") {
+    return `
+      <g transform="translate(610,202)">
+        <ellipse cx="148" cy="220" rx="126" ry="20" fill="#94a3b8" opacity="0.2"/>
+        <circle cx="112" cy="92" r="40" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
+        <circle cx="102" cy="86" r="4.5" fill="#0f172a"/>
+        <circle cx="124" cy="86" r="4.5" fill="#0f172a"/>
+        <path d="M98 106 Q112 116 126 106" fill="none" stroke="#7c2d12" stroke-width="3.5" stroke-linecap="round"/>
+        <rect x="74" y="126" width="76" height="102" rx="18" fill="${theme.outfit}"/>
+        <rect x="82" y="226" width="20" height="54" rx="10" fill="#334155"/>
+        <rect x="124" y="226" width="20" height="54" rx="10" fill="#334155"/>
+
+        <circle cx="188" cy="118" r="30" fill="#fde68a" stroke="#f59e0b" stroke-width="3"/>
+        <circle cx="180" cy="112" r="4" fill="#0f172a"/>
+        <circle cx="197" cy="112" r="4" fill="#0f172a"/>
+        <path d="M178 130 Q188 138 198 130" fill="none" stroke="#7c2d12" stroke-width="3" stroke-linecap="round"/>
+        <rect x="160" y="146" width="58" height="76" rx="16" fill="#f97316"/>
+        <rect x="166" y="220" width="16" height="44" rx="8" fill="#475569"/>
+        <rect x="196" y="220" width="16" height="44" rx="8" fill="#475569"/>
+      </g>
+    `;
+  }
+  return `
+    <g transform="translate(650,205)">
+      <ellipse cx="98" cy="208" rx="88" ry="20" fill="#94a3b8" opacity="0.25"/>
+      <circle cx="98" cy="84" r="44" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
+      <circle cx="84" cy="76" r="5" fill="#0f172a"/>
+      <circle cx="112" cy="76" r="5" fill="#0f172a"/>
+      <path d="M80 98 Q98 112 116 98" fill="none" stroke="#7c2d12" stroke-width="4" stroke-linecap="round"/>
+      <rect x="52" y="128" width="92" height="108" rx="22" fill="${theme.outfit}"/>
+      <rect x="44" y="146" width="22" height="70" rx="11" fill="${theme.outfit}"/>
+      <rect x="130" y="146" width="22" height="70" rx="11" fill="${theme.outfit}"/>
+      <rect x="62" y="232" width="24" height="52" rx="10" fill="#334155"/>
+      <rect x="112" y="232" width="24" height="52" rx="10" fill="#334155"/>
+      <rect x="58" y="282" width="32" height="12" rx="6" fill="#111827"/>
+      <rect x="108" y="282" width="32" height="12" rx="6" fill="#111827"/>
+    </g>
+  `;
+}
+
 function buildLessonSceneAsset(lesson) {
   if (!lesson) {
     return null;
   }
+  const manualKeywords = getLessonSceneKeywords(lesson);
+  const roleType = normalizeSceneRoleType(lesson?._sceneMeta?.roleType);
+  const roleLabel = getSceneRoleLabel(roleType);
   if (lesson.sceneImage) {
-    const defaultKeyword = lesson.keywords?.[0]?.word || lesson._unitTitle || "课文场景";
+    const defaultKeyword = manualKeywords[0] || lesson.keywords?.[0]?.word || lesson._unitTitle || "课文场景";
     return {
       src: String(lesson.sceneImage),
       alt: lesson.sceneAlt || `${lesson.title} 场景图`,
-      caption: `场景关键词：${defaultKeyword}（课程定制图）`,
+      caption: `场景关键词：${defaultKeyword}｜角色：${roleLabel}（课程定制图）`,
     };
   }
   const theme = resolveLessonSceneTheme(lesson);
-  const keyword = lesson.keywords?.[0]?.word || lesson._unitTitle || "学习场景";
+  const keyword = manualKeywords[0] || lesson.keywords?.[0]?.word || lesson._unitTitle || "学习场景";
+  const keywordLabel = manualKeywords.length ? manualKeywords.join("、") : keyword;
   const titleText = escapeSvgText(lesson.title || "课文场景");
-  const metaText = escapeSvgText(`${theme.label} · ${keyword}`);
+  const metaText = escapeSvgText(`${theme.label} · ${keyword} · ${roleLabel}`);
   const deco = buildSceneDecor(theme);
+  const cartoon = buildCartoonRole(theme, roleType);
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" role="img" aria-label="${titleText}">
       <defs>
@@ -396,20 +521,7 @@ function buildLessonSceneAsset(lesson) {
       <rect width="1000" height="560" fill="url(#sky_${theme.id})"/>
       <rect y="360" width="1000" height="200" fill="${theme.ground}" opacity="0.95"/>
       ${deco}
-      <g transform="translate(650,205)">
-        <ellipse cx="98" cy="208" rx="88" ry="20" fill="#94a3b8" opacity="0.25"/>
-        <circle cx="98" cy="84" r="44" fill="#fde68a" stroke="#f59e0b" stroke-width="4"/>
-        <circle cx="84" cy="76" r="5" fill="#0f172a"/>
-        <circle cx="112" cy="76" r="5" fill="#0f172a"/>
-        <path d="M80 98 Q98 112 116 98" fill="none" stroke="#7c2d12" stroke-width="4" stroke-linecap="round"/>
-        <rect x="52" y="128" width="92" height="108" rx="22" fill="${theme.outfit}"/>
-        <rect x="44" y="146" width="22" height="70" rx="11" fill="${theme.outfit}"/>
-        <rect x="130" y="146" width="22" height="70" rx="11" fill="${theme.outfit}"/>
-        <rect x="62" y="232" width="24" height="52" rx="10" fill="#334155"/>
-        <rect x="112" y="232" width="24" height="52" rx="10" fill="#334155"/>
-        <rect x="58" y="282" width="32" height="12" rx="6" fill="#111827"/>
-        <rect x="108" y="282" width="32" height="12" rx="6" fill="#111827"/>
-      </g>
+      ${cartoon}
       <rect x="34" y="28" width="472" height="84" rx="14" fill="#ffffff" opacity="0.86"/>
       <text x="54" y="64" font-size="32" font-family="Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">${titleText}</text>
       <text x="54" y="94" font-size="20" font-family="Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif" fill="#334155">${metaText}</text>
@@ -418,7 +530,7 @@ function buildLessonSceneAsset(lesson) {
   return {
     src: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
     alt: `${lesson.title} 场景图（含卡通人物）`,
-    caption: `场景：${theme.label}｜关键词：${keyword}｜卡通人物引导阅读`,
+    caption: `场景：${theme.label}｜关键词：${keywordLabel}｜角色：${roleLabel}`,
   };
 }
 
@@ -466,6 +578,10 @@ function getCurrentLessons() {
       _term: targetTerm.term || "",
       _order: index + 1,
       _gradeLabel: gradeBook.label || `${gradeBook.grade}年级`,
+      _sceneMeta:
+        sceneMetaMap[String(lesson.id || "")] && typeof sceneMetaMap[String(lesson.id || "")] === "object"
+          ? sceneMetaMap[String(lesson.id || "")]
+          : null,
     }));
   if (!search) {
     return rows;
