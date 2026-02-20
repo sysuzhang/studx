@@ -4,7 +4,7 @@
   const PROFILE_KEY = "userProfileV1";
   const STYLE_ID = "navUserMenuStyleV1";
   const PRIORITY_CHANNEL_LABELS = ["汉字总览", "拼音频道", "分级练习", "字帖工坊", "小学语文"];
-  const MERGED_NAV_LABELS = new Set(["新华字典"]);
+  const REMOVED_NAV_LABELS = new Set(["首页", "新华字典"]);
 
   const LEGACY_NAV_PAGES = new Set(["calendar.html", "auth.html", "teacher.html", "user.html"]);
   const USER_SCOPE_PAGES = new Set(["calendar.html", "auth.html", "teacher.html", "user.html"]);
@@ -132,7 +132,7 @@
     const links = [...container.querySelectorAll(":scope > a[href]")];
     links.forEach((link) => {
       const text = String(link.textContent || "").trim();
-      if (MERGED_NAV_LABELS.has(text)) {
+      if (REMOVED_NAV_LABELS.has(text)) {
         link.remove();
         return;
       }
